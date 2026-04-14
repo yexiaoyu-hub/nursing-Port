@@ -1,0 +1,58 @@
+{
+	"pages": [
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "任务大厅"
+			}
+		},
+		{
+			"path": "pages/managingOlder/managingOlder",
+			"style": {
+				"navigationBarTitleText": "我管辖的老人"
+			}
+		},
+		{
+			"path": "pages/task/task",
+			"style": {
+				"navigationBarTitleText": "任务/工单"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "uni-app",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#fff"
+	},
+	"uniIdRouter": {},
+	"tabBar": {
+		"color": "#999999",
+		"selectedColor": "#549bff",
+		"backgroundColor": "#ffffff",
+		"borderStyle": "black",
+		"fontSize": "16px",
+		"iconWidth": "28px",
+		"height": "60px",
+		"list": [
+			{
+				"pagePath": "pages/index/index",
+				"iconPath": "static/navigationIcon/iconOne.png",
+				"selectedIconPath": "static/navigationIcon/iconTwo.png",
+				"text": "首页"
+			},
+			{
+				"pagePath": "pages/managingOlder/managingOlder",
+				"iconPath": "static/navigationIcon/iconOne.png",
+				"selectedIconPath": "static/navigationIcon/iconTwo.png",
+				"text": "老人"
+			},
+			{
+				"pagePath": "pages/task/task",
+				"iconPath": "static/navigationIcon/iconOne.png",
+				"selectedIconPath": "static/navigationIcon/iconTwo.png",
+				"text": "任务"
+			}
+		]
+	}
+}
