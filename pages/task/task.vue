@@ -1,95 +1,126 @@
 <template>
   <view class="task-page">
-    <!-- 标签栏 -->
-    <view class="tab-bar">
-      <view
-        class="tab-item"
-        v-for="tab in tabs"
-        :key="tab.value"
-        :class="{ active: currentTab === tab.value }"
-        @click="switchTab(tab.value)"
-      >
-        <text>{{ tab.label }}</text>
+    <!-- 固定头部区域 -->
+    <view class="header-section">
+      <!-- 标签栏 -->
+      <view class="tab-bar">
+        <view
+          class="tab-item"
+          v-for="tab in tabs"
+          :key="tab.value"
+          :class="{ active: currentTab === tab.value }"
+          @click="switchTab(tab.value)"
+        >
+          <text>{{ tab.label }}</text>
+        </view>
+        <view class="calendar-icon" @click="openCalendar">
+          <uni-icons
+            type="calendar"
+            size="20"
+            :color="hasDateFilter ? '#007aff' : '#666'"
+          ></uni-icons>
+          <text v-if="hasDateFilter" class="filter-badge"></text>
+        </view>
       </view>
-      <view class="calendar-icon" @click="openCalendar">
-        <uni-icons type="calendar" size="20" color="#666"></uni-icons>
+
+      <!-- 搜索框 -->
+      <view class="search-section">
+        <view class="search-box">
+          <uni-icons type="search" size="24" color="#999"></uni-icons>
+          <input
+            class="search-input"
+            type="text"
+            placeholder="搜索老人/项目/工单号"
+            v-model="searchKeyword"
+            confirm-type="search"
+          />
+          <uni-icons
+            v-if="searchKeyword"
+            type="clear"
+            size="24"
+            color="#999"
+            @click="searchKeyword = ''"
+          ></uni-icons>
+        </view>
       </view>
     </view>
 
-    <!-- 搜索框 -->
-    <view class="search-section">
-      <view class="search-box">
-        <uni-icons type="search" size="24" color="#999"></uni-icons>
-        <input
-          class="search-input"
-          type="text"
-          placeholder="搜索老人/项目/工单号"
-          v-model="searchKeyword"
-          confirm-type="search"
-        />
-        <uni-icons
-          v-if="searchKeyword"
-          type="clear"
-          size="24"
-          color="#999"
-          @click="searchKeyword = ''"
-        ></uni-icons>
+    <!-- 日期筛选弹窗 -->
+    <view class="date-filter-popup" v-if="showDateFilter">
+      <view class="filter-mask" @click="closeDateFilter"></view>
+      <view class="filter-content">
+        <view class="filter-title">选择日期范围</view>
+        <view class="date-picker-wrapper">
+          <picker-view
+            class="date-picker"
+            :value="startDateValue"
+            @change="onStartDatePickerChange"
+          >
+            <picker-view-column>
+              <view class="picker-item" v-for="year in years" :key="year"
+                >{{ year }}年</view
+              >
+            </picker-view-column>
+            <picker-view-column>
+              <view class="picker-item" v-for="month in months" :key="month"
+                >{{ month }}月</view
+              >
+            </picker-view-column>
+            <picker-view-column>
+              <view class="picker-item" v-for="day in days" :key="day"
+                >{{ day }}日</view
+              >
+            </picker-view-column>
+          </picker-view>
+          <view class="picker-label">开始日期</view>
+        </view>
+        <view class="date-separator">至</view>
+        <view class="date-picker-wrapper">
+          <picker-view
+            class="date-picker"
+            :value="endDateValue"
+            @change="onEndDatePickerChange"
+          >
+            <picker-view-column>
+              <view class="picker-item" v-for="year in years" :key="year"
+                >{{ year }}年</view
+              >
+            </picker-view-column>
+            <picker-view-column>
+              <view class="picker-item" v-for="month in months" :key="month"
+                >{{ month }}月</view
+              >
+            </picker-view-column>
+            <picker-view-column>
+              <view class="picker-item" v-for="day in days" :key="day"
+                >{{ day }}日</view
+              >
+            </picker-view-column>
+          </picker-view>
+          <view class="picker-label">结束日期</view>
+        </view>
+        <view class="filter-actions">
+          <view class="btn-clear" @click="clearDateFilter">清空</view>
+          <view class="btn-confirm" @click="confirmDateFilter">确定</view>
+        </view>
       </view>
     </view>
 
     <!-- 任务列表 -->
-    <scroll-view class="task-list" scroll-y>
-      <view class="task-card" v-for="task in filteredTasks" :key="task.id">
-        <!-- 卡片头部 -->
-        <view class="card-header">
-          <view class="header-left">
-            <text class="elder-name">{{ task.elderName }}</text>
-            <text v-if="task.orderNo" class="order-no"
-              >任务单{{ task.orderNo }}</text
-            >
-          </view>
-          <view class="status-tag" :class="getStatusClass(task.status)">
-            {{ getStatusText(task.status) }}
-          </view>
-        </view>
-
-        <!-- 服务项目列表 -->
-        <view class="service-list">
-          <view
-            class="service-item"
-            v-for="(service, index) in task.services"
-            :key="index"
-          >
-            <text class="service-name">{{ service.name }}</text>
-            <text class="service-duration">{{ service.duration }} 分钟</text>
-          </view>
-        </view>
-
-        <!-- 卡片底部信息 -->
-        <view class="card-footer">
-          <view class="time-info">
-            <text class="time-label">{{ getTimeLabel(task.status) }}</text>
-            <text class="time-value">{{ task.executeTime }}</text>
-          </view>
-          <view class="duration-info">
-            <text class="duration-label">{{
-              getDurationLabel(task.status)
-            }}</text>
-            <text class="duration-value">{{ task.totalDuration }} 分钟</text>
-          </view>
-        </view>
-      </view>
+    <view class="task-list">
+      <TaskCard v-for="task in filteredTasks" :key="task.id" :task="task" />
 
       <!-- 空状态 -->
       <view v-if="filteredTasks.length === 0" class="empty-state">
         <text>暂无任务</text>
       </view>
-    </scroll-view>
+    </view>
   </view>
 </template>
 
 <script setup>
 import { ref, computed } from "vue";
+import TaskCard from "@/components/TaskCard.vue";
 
 // 顶部标签
 const tabs = [
@@ -104,6 +135,26 @@ const tabs = [
 const currentTab = ref("all");
 const currentBottomTab = ref("task");
 const searchKeyword = ref("");
+
+// 日期筛选相关
+const showDateFilter = ref(false);
+const tempStartDate = ref("");
+const tempEndDate = ref("");
+const startDate = ref("");
+const endDate = ref("");
+const startDateValue = ref([0, 0, 0]);
+const endDateValue = ref([0, 0, 0]);
+
+// 是否有日期筛选
+const hasDateFilter = computed(() => {
+  return startDate.value && endDate.value;
+});
+
+// 生成日期数据
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
+const months = Array.from({ length: 12 }, (_, i) => i + 1);
+const days = Array.from({ length: 31 }, (_, i) => i + 1);
 
 // 模拟任务数据
 const taskList = ref([
@@ -157,6 +208,14 @@ const filteredTasks = computed(() => {
     result = result.filter((task) => task.status === currentTab.value);
   }
 
+  // 按日期范围过滤
+  if (startDate.value && endDate.value) {
+    result = result.filter((task) => {
+      const taskDate = task.executeTime.split(" ")[0];
+      return taskDate >= startDate.value && taskDate <= endDate.value;
+    });
+  }
+
   // 按搜索关键词过滤
   if (searchKeyword.value) {
     const keyword = searchKeyword.value.toLowerCase();
@@ -176,44 +235,78 @@ const switchTab = (value) => {
   currentTab.value = value;
 };
 
-// 打开日历
+// 打开日期筛选
 const openCalendar = () => {
+  showDateFilter.value = true;
+  tempStartDate.value = startDate.value;
+  tempEndDate.value = endDate.value;
+};
+
+// 关闭日期筛选
+const closeDateFilter = () => {
+  showDateFilter.value = false;
+};
+
+// 开始日期选择器变化
+const onStartDatePickerChange = (e) => {
+  const [yearIndex, monthIndex, dayIndex] = e.detail.value;
+  const year = years[yearIndex];
+  const month = months[monthIndex];
+  const day = days[dayIndex];
+  tempStartDate.value = `${year}-${String(month).padStart(2, "0")}-${String(
+    day
+  ).padStart(2, "0")}`;
+  startDateValue.value = e.detail.value;
+};
+
+// 结束日期选择器变化
+const onEndDatePickerChange = (e) => {
+  const [yearIndex, monthIndex, dayIndex] = e.detail.value;
+  const year = years[yearIndex];
+  const month = months[monthIndex];
+  const day = days[dayIndex];
+  tempEndDate.value = `${year}-${String(month).padStart(2, "0")}-${String(
+    day
+  ).padStart(2, "0")}`;
+  endDateValue.value = e.detail.value;
+};
+
+// 清空日期筛选
+const clearDateFilter = () => {
+  tempStartDate.value = "";
+  tempEndDate.value = "";
+  startDate.value = "";
+  endDate.value = "";
+  showDateFilter.value = false;
   uni.showToast({
-    title: "日历功能开发中",
+    title: "已清空日期筛选",
     icon: "none",
   });
 };
 
-// 获取状态样式类
-const getStatusClass = (status) => {
-  const classMap = {
-    pending: "status-pending",
-    executing: "status-executing",
-    completed: "status-completed",
-    cancelled: "status-cancelled",
-  };
-  return classMap[status] || "";
-};
-
-// 获取状态文本
-const getStatusText = (status) => {
-  const textMap = {
-    pending: "待执行",
-    executing: "执行中",
-    completed: "已完成",
-    cancelled: "已取消",
-  };
-  return textMap[status] || status;
-};
-
-// 获取时间标签
-const getTimeLabel = (status) => {
-  return status === "completed" ? "完成时间" : "执行时间";
-};
-
-// 获取时长标签
-const getDurationLabel = (status) => {
-  return status === "completed" ? "实际总耗时" : "预计总耗时";
+// 确认日期筛选
+const confirmDateFilter = () => {
+  if (!tempStartDate.value || !tempEndDate.value) {
+    uni.showToast({
+      title: "请选择完整的日期范围",
+      icon: "none",
+    });
+    return;
+  }
+  if (tempStartDate.value > tempEndDate.value) {
+    uni.showToast({
+      title: "开始日期不能晚于结束日期",
+      icon: "none",
+    });
+    return;
+  }
+  startDate.value = tempStartDate.value;
+  endDate.value = tempEndDate.value;
+  showDateFilter.value = false;
+  uni.showToast({
+    title: `已筛选：${startDate.value} 至 ${endDate.value}`,
+    icon: "none",
+  });
 };
 </script>
 
@@ -221,7 +314,6 @@ const getDurationLabel = (status) => {
 .task-page {
   min-height: 100vh;
   background-color: #f5f7fa;
-  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
 }
 
 // 标签栏
@@ -261,7 +353,118 @@ const getDurationLabel = (status) => {
   .calendar-icon {
     padding: 0 30rpx;
     border-left: 1rpx solid #eee;
+    position: relative;
+    display: flex;
+    align-items: center;
+
+    .filter-badge {
+      position: absolute;
+      top: -4rpx;
+      right: 20rpx;
+      width: 16rpx;
+      height: 16rpx;
+      background-color: #007aff;
+      border-radius: 50%;
+    }
   }
+}
+
+// 日期筛选弹窗
+.date-filter-popup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+
+  .filter-mask {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  .filter-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #fff;
+    border-radius: 20rpx;
+    padding: 40rpx 30rpx;
+    width: 600rpx;
+
+    .filter-title {
+      font-size: 32rpx;
+      font-weight: 600;
+      color: #333;
+      text-align: center;
+      margin-bottom: 30rpx;
+    }
+
+    .date-picker-wrapper {
+      margin-bottom: 20rpx;
+
+      .date-picker {
+        height: 300rpx;
+
+        .picker-item {
+          line-height: 100rpx;
+          text-align: center;
+          font-size: 28rpx;
+        }
+      }
+
+      .picker-label {
+        text-align: center;
+        font-size: 24rpx;
+        color: #999;
+        margin-top: 10rpx;
+      }
+    }
+
+    .date-separator {
+      text-align: center;
+      font-size: 28rpx;
+      color: #666;
+      margin: 20rpx 0;
+    }
+
+    .filter-actions {
+      display: flex;
+      gap: 20rpx;
+      margin-top: 30rpx;
+
+      .btn-clear,
+      .btn-confirm {
+        flex: 1;
+        height: 80rpx;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 40rpx;
+        font-size: 28rpx;
+      }
+
+      .btn-clear {
+        background-color: #f5f5f5;
+        color: #666;
+      }
+
+      .btn-confirm {
+        background-color: #007aff;
+        color: #fff;
+      }
+    }
+  }
+}
+
+.btn-confirm-inline {
+  background-color: #007aff;
+  color: #fff;
 }
 
 // 搜索框
@@ -290,123 +493,20 @@ const getDurationLabel = (status) => {
   }
 }
 
-// 任务列表
-.task-list {
-  padding: 20rpx 30rpx;
-  height: calc(100vh - 400rpx - env(safe-area-inset-bottom));
+// 固定头部区域
+.header-section {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background-color: #f5f7fa;
 }
 
-// 任务卡片
-.task-card {
-  background-color: #fff;
-  border-radius: 20rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
-
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20rpx;
-
-    .header-left {
-      display: flex;
-      align-items: center;
-
-      .elder-name {
-        font-size: 32rpx;
-        font-weight: 600;
-        color: #333;
-        margin-right: 16rpx;
-      }
-
-      .order-no {
-        font-size: 24rpx;
-        color: #999;
-        background-color: #f5f5f5;
-        padding: 4rpx 12rpx;
-        border-radius: 8rpx;
-      }
-    }
-
-    .status-tag {
-      font-size: 24rpx;
-      padding: 6rpx 20rpx;
-      border-radius: 30rpx;
-
-      &.status-pending {
-        background-color: #fff3e0;
-        color: #ff9800;
-      }
-
-      &.status-executing {
-        background-color: #e3f2fd;
-        color: #2196f3;
-      }
-
-      &.status-completed {
-        background-color: #e8f5e9;
-        color: #4caf50;
-      }
-
-      &.status-cancelled {
-        background-color: #f5f5f5;
-        color: #999;
-      }
-    }
-  }
-
-  .service-list {
-    .service-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 20rpx 0;
-      border-bottom: 1rpx solid #f5f5f5;
-
-      &:last-child {
-        border-bottom: none;
-      }
-
-      .service-name {
-        font-size: 28rpx;
-        color: #333;
-      }
-
-      .service-duration {
-        font-size: 26rpx;
-        color: #666;
-      }
-    }
-  }
-
-  .card-footer {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 20rpx;
-    padding-top: 20rpx;
-    border-top: 1rpx solid #f5f5f5;
-
-    .time-info,
-    .duration-info {
-      display: flex;
-      align-items: center;
-
-      .time-label,
-      .duration-label {
-        font-size: 24rpx;
-        color: #999;
-        margin-right: 10rpx;
-      }
-
-      .time-value,
-      .duration-value {
-        font-size: 24rpx;
-        color: #666;
-      }
-    }
-  }
+// 任务列表
+.task-list {
+  padding: 0 30rpx 20rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
 }
 
 // 空状态

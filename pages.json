@@ -17,6 +17,12 @@
 			"style": {
 				"navigationBarTitleText": "任务/工单"
 			}
+		},
+		{
+			"path": "pages/user/user",
+			"style": {
+				"navigationBarTitleText": "我的"
+			}
 		}
 	],
 	"globalStyle": {
@@ -52,7 +58,13 @@
 				"iconPath": "static/navigationIcon/iconOne.png",
 				"selectedIconPath": "static/navigationIcon/iconTwo.png",
 				"text": "任务"
-			}
+			},
+			{
+				"pagePath": "pages/user/user",
+				"iconPath": "static/navigationIcon/iconOne.png",
+				"selectedIconPath": "static/navigationIcon/iconTwo.png",
+				"text": "我的"
+			},
 		]
 	}
 }

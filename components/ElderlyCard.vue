@@ -1,3 +1,4 @@
+//管辖老人卡片组件
 <script setup lang="ts">
 interface ElderlyItem {
   id: number;

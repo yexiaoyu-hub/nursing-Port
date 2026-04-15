@@ -91,7 +91,7 @@ const cardfrom = ref([
 <style lang="scss" scoped>
 .header {
   width: 100%;
-  height: 240rpx;
+  height: 200rpx;
   border-radius: 0 0 50rpx 50rpx;
   background: linear-gradient(120deg, #549bff, #144cd8);
   display: flex;
@@ -100,9 +100,9 @@ const cardfrom = ref([
   box-sizing: border-box;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3), 0 8px 20px rgba(0, 0, 0, 0.1);
   .touxiang {
-    width: 160rpx;
-    height: 160rpx;
-    border-radius: 40rpx;
+    width: 120rpx;
+    height: 120rpx;
+    border-radius: 20rpx;
     background-color: #8ab7fc;
   }
   .headername {
@@ -111,7 +111,7 @@ const cardfrom = ref([
     display: flex;
     flex-direction: column;
     .text {
-      font-size: 70rpx;
+      font-size: 50rpx;
       font-weight: 700;
       color: white;
     }
