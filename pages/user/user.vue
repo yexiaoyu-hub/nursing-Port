@@ -26,31 +26,35 @@
       <view class="menu-card">
         <view class="menu-item" @click="navigateTo('/pages/user/profile')">
           <view class="menu-icon blue">
-            <text class="iconfont icon-user"></text>
+            <uni-icons type="person" size="20" color="#4a90d9"></uni-icons>
           </view>
           <text class="menu-text">个人信息</text>
-          <text class="arrow">></text>
+          <uni-icons type="right" size="16" color="#ccc"></uni-icons>
         </view>
         <view class="menu-item" @click="navigateTo('/pages/user/data')">
           <view class="menu-icon green">
-            <text class="iconfont icon-chart"></text>
+            <uni-icons type="bars" size="20" color="#52c41a"></uni-icons>
           </view>
           <text class="menu-text">我的数据</text>
-          <text class="arrow">></text>
+          <uni-icons type="right" size="16" color="#ccc"></uni-icons>
         </view>
         <view class="menu-item" @click="navigateTo('/pages/user/abnormal')">
           <view class="menu-icon red">
-            <text class="iconfont icon-warning"></text>
+            <uni-icons type="info-filled" size="20" color="#EF4444"></uni-icons>
           </view>
           <text class="menu-text">异常信息</text>
-          <text class="arrow">></text>
+          <uni-icons type="right" size="16" color="#ccc"></uni-icons>
         </view>
         <view class="menu-item" @click="navigateTo('/pages/user/messages')">
           <view class="menu-icon orange">
-            <text class="iconfont icon-bell"></text>
+            <uni-icons
+              type="notification"
+              size="20"
+              color="#fa8c16"
+            ></uni-icons>
           </view>
           <text class="menu-text">系统消息</text>
-          <text class="arrow">></text>
+          <uni-icons type="right" size="16" color="#ccc"></uni-icons>
         </view>
       </view>
 
@@ -58,24 +62,24 @@
       <view class="menu-card">
         <view class="menu-item" @click="navigateTo('/pages/user/help')">
           <view class="menu-icon cyan">
-            <text class="iconfont icon-help"></text>
+            <uni-icons type="help" size="20" color="#13c2c2"></uni-icons>
           </view>
           <text class="menu-text">帮助与反馈</text>
-          <text class="arrow">></text>
+          <uni-icons type="right" size="16" color="#ccc"></uni-icons>
         </view>
         <view class="menu-item" @click="navigateTo('/pages/user/agreement')">
           <view class="menu-icon gray">
-            <text class="iconfont icon-file"></text>
+            <uni-icons type="wallet" size="20" color="#8c8c8c"></uni-icons>
           </view>
           <text class="menu-text">用户协议</text>
-          <text class="arrow">></text>
+          <uni-icons type="right" size="16" color="#ccc"></uni-icons>
         </view>
         <view class="menu-item" @click="navigateTo('/pages/user/privacy')">
           <view class="menu-icon gray">
-            <text class="iconfont icon-lock"></text>
+            <uni-icons type="locked" size="20" color="#8c8c8c"></uni-icons>
           </view>
           <text class="menu-text">隐私政策</text>
-          <text class="arrow">></text>
+          <uni-icons type="right" size="16" color="#ccc"></uni-icons>
         </view>
       </view>
     </view>
@@ -173,11 +177,11 @@ const logout = () => {
 // 菜单区域
 .menu-section {
   padding: 30rpx;
-  margin-top: -30rpx;
+  margin-top: 10rpx;
 
   .menu-card {
     background-color: #fff;
-    border-radius: 20rpx;
+    border-radius: 30rpx;
     padding: 0 30rpx;
     margin-bottom: 20rpx;
     box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.05);
@@ -198,8 +202,8 @@ const logout = () => {
     }
 
     .menu-icon {
-      width: 56rpx;
-      height: 56rpx;
+      width: 64rpx;
+      height: 64rpx;
       border-radius: 12rpx;
       display: flex;
       align-items: center;
@@ -235,16 +239,13 @@ const logout = () => {
         background-color: #f5f5f5;
         color: #8c8c8c;
       }
-
-      .iconfont {
-        font-size: 32rpx;
-      }
     }
 
     .menu-text {
       flex: 1;
-      font-size: 30rpx;
-      color: #333;
+      font-size: 15px;
+      color: #111828;
+      font-weight: 600;
     }
 
     .arrow {
@@ -256,8 +257,11 @@ const logout = () => {
 
 // 退出登录
 .logout-section {
-  padding: 40rpx 30rpx;
+  padding: 20rpx 0rpx;
   text-align: center;
+  border: 1rpx solid #e49c9c;
+  border-radius: 30rpx;
+  margin: 0 30rpx;
 
   .logout-text {
     color: #ff4d4f;

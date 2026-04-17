@@ -88,7 +88,7 @@ const getDurationLabel = (status) => {
   padding: 30rpx;
   margin-bottom: 20rpx;
   box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
-  max-width: 640rpx;
+  max-width: 100%;
   margin-left: auto;
   margin-right: auto;
 

@@ -18,11 +18,16 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: "buttonClick", buttonText: string, elderlyName: string): void;
+  (e: "button-click", buttonText: string, elderlyName: string): void;
+  (e: "card-click", elderlyName: string): void;
 }>();
 
 const handleButtonClick = (buttonText: string, elderlyName: string) => {
-  emit("buttonClick", buttonText, elderlyName);
+  emit("button-click", buttonText, elderlyName);
+};
+
+const handleCardClick = () => {
+  emit("card-click", props.item.name);
 };
 </script>
 
@@ -34,7 +39,7 @@ const handleButtonClick = (buttonText: string, elderlyName: string) => {
     </view>
 
     <!-- 卡片头部：头像、信息 -->
-    <view class="card-header">
+    <view class="card-header" @click="handleCardClick">
       <view class="avatar"></view>
       <view class="info-section">
         <view class="name-row">
@@ -74,7 +79,7 @@ const handleButtonClick = (buttonText: string, elderlyName: string) => {
 
 <style lang="scss" scoped>
 .elderly-card {
-  width: 95%;
+  width: 100%;
   background-color: #fff;
   border-radius: 20rpx;
   padding: 24rpx;

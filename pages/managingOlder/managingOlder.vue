@@ -1,3 +1,4 @@
+//老人页面
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import ElderlyCard from "@/components/ElderlyCard.vue";
@@ -202,9 +203,22 @@ const clearFilter = () => {
 
 // 处理按钮点击
 const handleButtonClick = (buttonText: string, elderlyName: string) => {
-  uni.showToast({
-    title: `${buttonText}: ${elderlyName}`,
-    icon: "none",
+  if (buttonText === "服务计划") {
+    uni.navigateTo({
+      url: "/pages/servicePlan/servicePlan?id=" + elderlyName,
+    });
+  } else {
+    uni.showToast({
+      title: `${buttonText}: ${elderlyName}`,
+      icon: "none",
+    });
+  }
+};
+
+// 处理卡片点击 - 跳转到老人档案页
+const handleCardClick = (elderlyName: string) => {
+  uni.navigateTo({
+    url: "/pages/oderFile/index?name=" + elderlyName,
   });
 };
 </script>
@@ -274,17 +288,18 @@ const handleButtonClick = (buttonText: string, elderlyName: string) => {
     </view>
 
     <!-- 老人卡片列表 -->
-    <scroll-view class="elderly-list" scroll-y>
+    <view class="elderly-list">
       <ElderlyCard
         v-for="item in filteredList"
         :key="item.id"
         :item="item"
-        @buttonClick="handleButtonClick"
+        @button-click="handleButtonClick"
+        @card-click="handleCardClick"
       />
 
       <!-- 底部安全区域 -->
       <view style="height: calc(100rpx + env(safe-area-inset-bottom))"></view>
-    </scroll-view>
+    </view>
   </view>
 </template>
 
@@ -442,6 +457,6 @@ const handleButtonClick = (buttonText: string, elderlyName: string) => {
 
 // 老人列表
 .elderly-list {
-  height: calc(100vh - 380rpx);
+  padding: 0 20rpx;
 }
 </style>

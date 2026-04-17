@@ -23,6 +23,24 @@
 			"style": {
 				"navigationBarTitleText": "我的"
 			}
+		},
+		{
+			"path": "pages/oderFile/index",
+			"style": {
+				"navigationBarTitleText": "老人档案"
+			}
+		},
+		{
+			"path": "pages/servicePlan/servicePlan",
+			"style": {
+				"navigationBarTitleText": "服务计划"
+			}
+		},
+		{
+			"path": "pages/serviceExecute/index",
+			"style": {
+				"navigationBarTitleText": "服务执行"
+			}
 		}
 	],
 	"globalStyle": {
@@ -64,7 +82,7 @@
 				"iconPath": "static/navigationIcon/iconOne.png",
 				"selectedIconPath": "static/navigationIcon/iconTwo.png",
 				"text": "我的"
-			},
+			}
 		]
 	}
 }
