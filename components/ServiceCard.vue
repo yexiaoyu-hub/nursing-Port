@@ -5,15 +5,16 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  time: {
+    type: String,
+    default: "9:00 - 10:00",
+  },
 });
 </script>
 
 
 <template>
   <view class="ServiceCard">
-    <view class="time">
-      <text>9:00 - 10:00</text>
-    </view>
     <view class="card">
       <view class="cardheader">
         <view class="touxiang"></view>
@@ -72,12 +73,11 @@ const props = defineProps({
 <style lang="scss" scoped>
 .ServiceCard {
   width: 100%;
-  height: 700rpx;
+  height: 620rpx;
   box-sizing: border-box;
-  .time {
-    color: #778599;
-  }
+
   .card {
+    flex: 1;
     background-color: white;
     width: 100%;
     height: 620rpx;
@@ -112,13 +112,12 @@ const props = defineProps({
         }
       }
       .labelheader {
-        width: 150rpx;
-        height: 50rpx;
+        padding: 4rpx 16rpx;
         background-color: #d0f9d9;
-        border-radius: 30rpx;
-        color: green;
-        border: 1rpx solid #00aa00;
-        font-size: 28rpx;
+        border-radius: 20rpx;
+        color: #52c41a;
+        border: 1rpx solid #52c41a;
+        font-size: 22rpx;
         display: flex;
         align-items: center;
         justify-content: center;

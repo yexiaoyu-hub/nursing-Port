@@ -7,6 +7,13 @@ const props = defineProps({
   },
 });
 
+// 点击卡片跳转到任务详情
+const goToDetail = () => {
+  uni.navigateTo({
+    url: `/pages/task/taskDetails?id=${props.task.id}`,
+  });
+};
+
 // 获取状态样式类
 const getStatusClass = (status) => {
   const classMap = {
@@ -41,7 +48,7 @@ const getDurationLabel = (status) => {
 </script>
 
 <template>
-  <view class="task-card">
+  <view class="task-card" @click="goToDetail">
     <!-- 卡片头部 -->
     <view class="card-header">
       <view class="header-left">

@@ -43,16 +43,15 @@ const handleDial = (phone: string) => {
 
 // 处理历史记录
 const handleHistory = () => {
-  uni.showToast({
-    title: "查看历史记录",
-    icon: "none",
+  uni.navigateTo({
+    url: "/pages/servicePlan/historicalRecord?id=" + elderlyInfo.value.id,
   });
 };
 
 // 处理查看今日任务
 const handleTodayTask = () => {
   uni.switchTab({
-    url: "/pages/task/task",
+    url: "/pages/task/taskDetails?id=" + elderlyInfo.value.id,
   });
 };
 

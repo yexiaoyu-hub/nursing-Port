@@ -3,6 +3,8 @@
 import { ref } from "vue";
 import ServiceStartTab from "./ExecuteTabs/serviceStart.vue";
 import ServiceSecondTab from "./ExecuteTabs/serviceSecond.vue";
+import ServiceEndTab from "./ExecuteTabs/serviceEnd.vue";
+import ServiceEvaluationTab from "./ExecuteTabs/serviceEvaluation.vue";
 
 // 当前步骤
 const currentStep = ref(1);
@@ -46,6 +48,8 @@ const steps = [
     <view class="content">
       <ServiceStartTab v-if="currentStep === 1" @next-step="nextStep" />
       <ServiceSecondTab v-if="currentStep === 2" @next-step="nextStep" />
+      <ServiceEndTab v-if="currentStep === 3" @next-step="nextStep" />
+      <ServiceEvaluationTab v-if="currentStep === 4" />
     </view>
   </view>
 </template>

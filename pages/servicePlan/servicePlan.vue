@@ -107,7 +107,7 @@ const startService = () => {
 // 查看历史记录
 const viewHistory = () => {
   uni.navigateTo({
-    url: "/pages/oderFile/index",
+    url: "/pages/servicePlan/historicalRecord?id=" + elderlyInfo.value.id,
   });
 };
 

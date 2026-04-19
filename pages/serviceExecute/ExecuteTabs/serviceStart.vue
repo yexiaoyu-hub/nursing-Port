@@ -124,17 +124,15 @@ const handleComplete = () => {
 
 // 异常上报
 const handleAbnormalReport = () => {
-  uni.showToast({
-    title: "异常上报",
-    icon: "none",
+  uni.navigateTo({
+    url: "/pages/serviceExecute/otherEntrances/serviceFailure",
   });
 };
 
 // 转交任务
 const handleTransferTask = () => {
-  uni.showToast({
-    title: "转交任务",
-    icon: "none",
+  uni.navigateTo({
+    url: "/pages/serviceExecute/otherEntrances/handover",
   });
 };
 </script>
@@ -327,8 +325,9 @@ const handleTransferTask = () => {
     .btn-checkin {
       width: 100%;
       height: 80rpx;
-      background-color: #1677ff;
-      color: #fff;
+      background-color: #ffffff;
+      color: #1677ff;
+      border: 2rpx solid #1677ff;
       border-radius: 20rpx;
       display: flex;
       align-items: center;
@@ -337,7 +336,9 @@ const handleTransferTask = () => {
       font-weight: 600;
 
       &.success {
+        color: #fff;
         background-color: #52c41a;
+        border: none;
       }
     }
 

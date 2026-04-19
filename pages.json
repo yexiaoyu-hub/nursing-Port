@@ -41,12 +41,36 @@
 			"style": {
 				"navigationBarTitleText": "服务执行"
 			}
+		},
+		{
+			"path": "pages/task/taskDetails",
+			"style": {
+				"navigationBarTitleText": "任务详情"
+			}
+		},
+		{
+			"path": "pages/servicePlan/historicalRecord",
+			"style": {
+				"navigationBarTitleText": "历史服务记录"
+			}
+		},
+		{
+			"path": "pages/serviceExecute/otherEntrances/serviceFailure",
+			"style": {
+				"navigationBarTitleText": "新建异常"
+			}
+		},
+		{
+			"path": "pages/serviceExecute/otherEntrances/handover",
+			"style": {
+				"navigationBarTitleText": "服务转交申请"
+			}
 		}
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "black",
 		"navigationBarTitleText": "uni-app",
-		"navigationBarBackgroundColor": "#F8F8F8",
+		"navigationBarBackgroundColor": "#fff",
 		"backgroundColor": "#fff"
 	},
 	"uniIdRouter": {},

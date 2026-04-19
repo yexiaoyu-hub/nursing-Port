@@ -20,6 +20,7 @@ const cardfrom = ref([
     label: "机构护理",
     disability: "中度",
     labelblue: ["翻身", "洗浴", "按摩"],
+    time: "9:00 - 10:00",
   },
   {
     id: 2,
@@ -30,6 +31,7 @@ const cardfrom = ref([
     label: "机构护理",
     disability: "轻度",
     labelblue: ["喂食", "护理"],
+    time: "10:00 - 11:00",
   },
 ]);
 </script>
@@ -59,28 +61,49 @@ const cardfrom = ref([
       <view class="lantext">
         <text>今日待服务任务</text>
       </view>
-      <view style="padding-bottom: calc(100rpx + env(safe-area-inset-bottom))">
-        <ServiceCard
-          v-for="item in cardfrom"
+      <view
+        class="timeline-wrapper"
+        style="padding-bottom: calc(100rpx + env(safe-area-inset-bottom))"
+      >
+        <view
+          v-for="(item, index) in cardfrom"
           :key="item.id"
-          :labelblue="item.labelblue"
+          class="timeline-item"
         >
-          <template #name
-            ><text>{{ item.name }}</text></template
-          >
-          <template #gender
-            ><text>{{ item.gender }}</text></template
-          >
-          <template #age
-            ><text>{{ item.age }}</text></template
-          >
-          <template #address
-            ><text>{{ item.address }}</text></template
-          >
-          <template #label>{{ item.label }}</template>
-          <template #disability>{{ item.disability }}</template>
-          <template #labelblue="{ item }">{{ item }}</template>
-        </ServiceCard>
+          <view class="timeline-left">
+            <view class="timeline-track">
+              <view class="timeline-dot"></view>
+              <view
+                class="timeline-line"
+                v-if="index < cardfrom.length - 1"
+              ></view>
+            </view>
+          </view>
+          <view class="timeline-right">
+            <view class="timeline-time">{{ item.time }}</view>
+            <view class="timeline-content">
+              <ServiceCard :labelblue="item.labelblue">
+                <template #name
+                  ><text>{{ item.name }}</text></template
+                >
+                <template #gender
+                  ><text>{{ item.gender }}</text></template
+                >
+                <template #age
+                  ><text>{{ item.age }}</text></template
+                >
+                <template #address
+                  ><text>{{ item.address }}</text></template
+                >
+                <template #label>{{ item.label }}</template>
+                <template #disability>{{ item.disability }}</template>
+                <template #labelblue="{ item: labelItem }">{{
+                  labelItem
+                }}</template>
+              </ServiceCard>
+            </view>
+          </view>
+        </view>
       </view>
     </view>
   </view>
@@ -159,12 +182,61 @@ const cardfrom = ref([
 }
 .renwu {
   width: 100%;
-  height: 650rpx;
   padding: 0 30rpx;
   box-sizing: border-box;
   .lantext {
     color: #838fa3;
     margin-bottom: 20rpx;
+  }
+
+  .timeline-wrapper {
+    .timeline-item {
+      display: flex;
+      margin-bottom: 30rpx;
+
+      .timeline-left {
+        width: 40rpx;
+        flex-shrink: 0;
+
+        .timeline-track {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding-top: 8rpx;
+          height: 100%;
+
+          .timeline-dot {
+            width: 16rpx;
+            height: 16rpx;
+            background-color: #1677ff;
+            border-radius: 50%;
+            flex-shrink: 0;
+          }
+
+          .timeline-line {
+            width: 3rpx;
+            flex: 1;
+            background-color: #cccccc;
+            margin-top: 8rpx;
+          }
+        }
+      }
+
+      .timeline-right {
+        flex: 1;
+
+        .timeline-time {
+          font-size: 24rpx;
+          color: #666;
+          margin-bottom: 12rpx;
+          padding-left: 16rpx;
+        }
+
+        .timeline-content {
+          width: 100%;
+        }
+      }
+    }
   }
 }
 </style>

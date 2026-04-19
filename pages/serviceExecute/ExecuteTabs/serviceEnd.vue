@@ -1,4 +1,4 @@
-// 服务中标签页组件
+// 服务结束标签页组件
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import AbnormalAction from "@/components/AbnormalAction.vue";
@@ -7,12 +7,8 @@ const emit = defineEmits<{
   (e: "next-step"): void;
 }>();
 
-// 服务项目列表
-const serviceItems = ref([
-  { id: 1, name: "晨间清洁", icon: "🧼", sopUrl: "/pages/sop/cleaning" },
-  { id: 2, name: "血压测量", icon: "🩺", sopUrl: "/pages/sop/bloodPressure" },
-  { id: 3, name: "关节活动", icon: "🦵", sopUrl: "/pages/sop/exercise" },
-]);
+// 照片列表
+const photos = ref<string[]>([]);
 
 // 录音状态
 const isRecording = ref(false);
@@ -20,30 +16,26 @@ const recordingTime = ref(0);
 const hasRecorded = ref(false);
 const audioDuration = ref("00:04");
 
-// 过程记录
-const processRecord = ref("");
+// 过程总结
+const summary = ref("");
 
-// 健康指标
-const healthData = ref({
-  bloodPressure: "",
-  temperature: "",
+// 服务时长数据
+const actualDuration = ref(1940); // 秒数，示例：32分20秒
+const plannedDuration = 40; // 计划时长（分钟）
+
+// 计算完成百分比
+const completionPercent = computed(() => {
+  const actualMinutes = actualDuration.value / 60;
+  return Math.min(Math.round((actualMinutes / plannedDuration) * 100), 100);
 });
 
-// 服务计时
-const serviceDuration = ref(854); // 秒数，示例：14分14秒
-const plannedDuration = 40; // 计划时长（分钟）
-const isTiming = ref(true);
-
-// 格式化时间显示
+// 格式化时间显示（MM:SS）
 const formatDuration = (seconds: number) => {
-  const hours = Math.floor(seconds / 3600)
-    .toString()
-    .padStart(2, "0");
-  const mins = Math.floor((seconds % 3600) / 60)
+  const mins = Math.floor(seconds / 60)
     .toString()
     .padStart(2, "0");
   const secs = (seconds % 60).toString().padStart(2, "0");
-  return `${hours}:${mins}:${secs}`;
+  return `${mins}:${secs}`;
 };
 
 // 格式化录音时间
@@ -55,11 +47,22 @@ const formatTime = (seconds: number) => {
   return `${mins}:${secs}`;
 };
 
-// 查看SOP
-const viewSOP = (item: any) => {
-  uni.navigateTo({
-    url: item.sopUrl,
+// 拍照
+const handleTakePhoto = () => {
+  uni.chooseImage({
+    count: 1,
+    sourceType: ["camera"],
+    success: (res) => {
+      if (photos.value.length < 3) {
+        photos.value.push(res.tempFilePaths[0]);
+      }
+    },
   });
+};
+
+// 删除照片
+const removePhoto = (index: number) => {
+  photos.value.splice(index, 1);
 };
 
 // 播放录音
@@ -88,25 +91,9 @@ const toggleRecording = () => {
   }
 };
 
-// 完成并进入服务结束
-const handleComplete = () => {
-  // 检查服务时长是否达到计划的80%
-  const actualMinutes = serviceDuration.value / 60;
-  const minRequiredMinutes = plannedDuration * 0.8;
-
-  if (actualMinutes < minRequiredMinutes) {
-    uni.showModal({
-      title: "提示",
-      content: "服务时间不够，是否继续结束？",
-      success: (res) => {
-        if (res.confirm) {
-          emit("next-step");
-        }
-      },
-    });
-  } else {
-    emit("next-step");
-  }
+// 下一步
+const handleNext = () => {
+  emit("next-step");
 };
 
 // 异常上报
@@ -122,35 +109,35 @@ const handleTransferTask = () => {
     url: "/pages/serviceExecute/otherEntrances/handover",
   });
 };
-
-// 启动计时器
-setInterval(() => {
-  if (isTiming.value) {
-    serviceDuration.value++;
-  }
-}, 1000);
 </script>
 
 <template>
-  <view class="service-second-tab">
-    <!-- 1) 服务项目 -->
+  <view class="service-end-tab">
+    <!-- 1) 服务后拍照 -->
     <view class="section">
-      <view class="section-title">1) 本次服务项目（点击查看SOP）</view>
-      <view class="service-items">
+      <view class="section-title">1) 服务后拍照</view>
+      <view class="photo-list">
         <view
-          v-for="item in serviceItems"
-          :key="item.id"
-          class="service-item"
-          @click="viewSOP(item)"
+          v-for="(photo, index) in photos"
+          :key="index"
+          class="photo-item"
+          :style="{ backgroundImage: `url(${photo})` }"
         >
-          <text class="item-name">{{ item.name }}</text>
+          <view class="photo-remove" @click="removePhoto(index)">×</view>
+        </view>
+        <view
+          v-if="photos.length < 3"
+          class="photo-item add"
+          @click="handleTakePhoto"
+        >
+          <text class="add-icon">+</text>
         </view>
       </view>
     </view>
 
-    <!-- 2) 服务过程录音 -->
+    <!-- 2) 服务后录音 -->
     <view class="section">
-      <view class="section-title">2) 服务过程录音</view>
+      <view class="section-title">2) 服务后录音</view>
       <!-- 录音播放器 -->
       <view v-if="hasRecorded" class="audio-player">
         <view class="play-btn" @click="playRecording">
@@ -177,62 +164,47 @@ setInterval(() => {
       </view>
     </view>
 
-    <!-- 3) 过程记录 -->
+    <!-- 3) 过程后总结 -->
     <view class="section">
-      <view class="section-title">3) 过程记录</view>
+      <view class="section-title">3) 过程后总结</view>
       <textarea
-        v-model="processRecord"
+        v-model="summary"
         class="process-textarea"
         placeholder="记录关键操作及老人反应..."
         maxlength="500"
       />
     </view>
 
-    <!-- 4) 健康指标录入 -->
-    <view class="section">
-      <view class="section-title">4) 健康指标录入</view>
-      <view class="health-form">
-        <view class="form-item">
-          <text class="form-label">血压</text>
-          <input
-            v-model="healthData.bloodPressure"
-            class="form-input"
-            placeholder="请输入血压（单位：mmHg）"
-          />
-        </view>
-        <view class="form-item">
-          <text class="form-label">体温</text>
-          <input
-            v-model="healthData.temperature"
-            class="form-input"
-            placeholder="请输入体温（单位：℃）"
-          />
-        </view>
-      </view>
-    </view>
-
     <!-- 服务时长 -->
     <view class="section">
       <view class="section-title">服务时长</view>
       <view class="duration-box">
-        <text class="duration-label"
-          >计划服务时长 {{ plannedDuration }} 分钟</text
-        >
-        <text class="duration-time">{{ formatDuration(serviceDuration) }}</text>
-        <view class="duration-status">
-          <text class="status-dot"></text>
-          <text class="status-text">正在计时</text>
+        <view class="duration-content">
+          <view class="duration-left">
+            <text class="duration-value">{{
+              formatDuration(actualDuration)
+            }}</text>
+            <text class="duration-label">实际时长</text>
+          </view>
+          <view class="duration-right">
+            <text class="duration-value">{{ plannedDuration }}分钟</text>
+            <text class="duration-label">计划时长</text>
+          </view>
+        </view>
+        <view class="duration-progress">
+          <view class="progress-bg">
+            <view
+              class="progress-fill"
+              :style="{ width: completionPercent + '%' }"
+            ></view>
+          </view>
+          <text class="progress-text">{{ completionPercent }}%</text>
         </view>
       </view>
-      <text class="duration-rule">
-        规则：实际时长不足计划80%时提示"服务时间不够"。（原型：按钮触发提示）
-      </text>
     </view>
 
-    <!-- 完成按钮 -->
-    <view class="btn-complete" @click="handleComplete">
-      完成并进入服务结束
-    </view>
+    <!-- 下一步按钮 -->
+    <view class="btn-next" @click="handleNext"> 下一步 </view>
 
     <!-- 服务转交/异常入口 -->
     <AbnormalAction
@@ -246,7 +218,7 @@ setInterval(() => {
 </template>
 
 <style lang="scss" scoped>
-.service-second-tab {
+.service-end-tab {
   padding: 20rpx;
 
   .section {
@@ -262,27 +234,47 @@ setInterval(() => {
       margin-bottom: 20rpx;
     }
 
-    // 服务项目
-    .service-items {
+    // 拍照区域
+    .photo-list {
       display: flex;
       gap: 20rpx;
-      flex-wrap: wrap;
 
-      .service-item {
+      .photo-item {
         width: 180rpx;
-        height: 60rpx;
-        background-color: #fff;
-        border: 2rpx solid #6fa6f4;
+        height: 180rpx;
         border-radius: 12rpx;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 12rpx;
+        background-size: cover;
+        background-position: center;
+        position: relative;
+        border: 2rpx solid #eee;
 
-        .item-name {
-          font-size: 26rpx;
-          color: #6fa6f4;
+        &.add {
+          background-color: #f5f5f5;
+          border: 2rpx dashed #ccc;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+
+          .add-icon {
+            font-size: 48rpx;
+            color: #999;
+          }
+        }
+
+        .photo-remove {
+          position: absolute;
+          top: -10rpx;
+          right: -10rpx;
+          width: 36rpx;
+          height: 36rpx;
+          background-color: #ff4d4f;
+          color: #fff;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 24rpx;
         }
       }
     }
@@ -361,7 +353,7 @@ setInterval(() => {
       }
     }
 
-    // 过程记录
+    // 过程总结
     .process-textarea {
       width: 100%;
       height: 160rpx;
@@ -374,87 +366,71 @@ setInterval(() => {
       box-sizing: border-box;
     }
 
-    // 健康指标表单
-    .health-form {
-      .form-item {
-        display: flex;
-        align-items: center;
-        margin-bottom: 20rpx;
-
-        &:last-child {
-          margin-bottom: 0;
-        }
-
-        .form-label {
-          width: 100rpx;
-          font-size: 28rpx;
-          color: #333;
-        }
-
-        .form-input {
-          flex: 1;
-          height: 70rpx;
-          background-color: #fff;
-          border: 2rpx solid #ddd;
-          border-radius: 12rpx;
-          padding: 0 20rpx;
-          font-size: 26rpx;
-          color: #333;
-        }
-      }
-    }
-
     // 服务时长
     .duration-box {
-      background-color: #f0f7ff;
+      background-color: #f8f9fa;
       border-radius: 16rpx;
       padding: 30rpx;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-bottom: 16rpx;
 
-      .duration-label {
-        font-size: 24rpx;
-        color: #666;
-        margin-bottom: 12rpx;
+      .duration-content {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20rpx;
+
+        .duration-left,
+        .duration-right {
+          display: flex;
+          flex-direction: column;
+
+          .duration-value {
+            font-size: 40rpx;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 8rpx;
+          }
+
+          .duration-label {
+            font-size: 24rpx;
+            color: #999;
+          }
+        }
+
+        .duration-right {
+          align-items: flex-end;
+        }
       }
 
-      .duration-time {
-        font-size: 56rpx;
-        font-weight: 700;
-        color: #333;
-        margin-bottom: 12rpx;
-      }
-
-      .duration-status {
+      .duration-progress {
         display: flex;
         align-items: center;
-        gap: 8rpx;
+        gap: 16rpx;
 
-        .status-dot {
-          width: 12rpx;
-          height: 12rpx;
-          background-color: #52c41a;
-          border-radius: 50%;
+        .progress-bg {
+          flex: 1;
+          height: 8rpx;
+          background-color: #e0e0e0;
+          border-radius: 4rpx;
+          overflow: hidden;
+
+          .progress-fill {
+            height: 100%;
+            background-color: #1677ff;
+            border-radius: 4rpx;
+            transition: width 0.3s ease;
+          }
         }
 
-        .status-text {
+        .progress-text {
           font-size: 24rpx;
-          color: #52c41a;
+          color: #1677ff;
+          font-weight: 600;
         }
       }
-    }
-
-    .duration-rule {
-      font-size: 22rpx;
-      color: #999;
-      line-height: 1.5;
     }
   }
 
-  // 完成按钮
-  .btn-complete {
+  // 下一步按钮
+  .btn-next {
     width: 100%;
     height: 90rpx;
     background-color: #1677ff;
