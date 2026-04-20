@@ -65,6 +65,18 @@
 			"style": {
 				"navigationBarTitleText": "服务转交申请"
 			}
+		},
+		{
+			"path": "pages/user/myinfo/myinfo",
+			"style": {
+				"navigationBarTitleText": "个人信息"
+			}
+		},
+		{
+			"path": "pages/user/dataCenter/index",
+			"style": {
+				"navigationBarTitleText": "数据中心"
+			}
 		}
 	],
 	"globalStyle": {

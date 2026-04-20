@@ -24,14 +24,20 @@
     <view class="menu-section">
       <!-- 主要功能 -->
       <view class="menu-card">
-        <view class="menu-item" @click="navigateTo('/pages/user/profile')">
+        <view
+          class="menu-item"
+          @click="navigateTo('/pages/user/myinfo/myinfo')"
+        >
           <view class="menu-icon blue">
             <uni-icons type="person" size="20" color="#4a90d9"></uni-icons>
           </view>
           <text class="menu-text">个人信息</text>
           <uni-icons type="right" size="16" color="#ccc"></uni-icons>
         </view>
-        <view class="menu-item" @click="navigateTo('/pages/user/data')">
+        <view
+          class="menu-item"
+          @click="navigateTo('/pages/user/dataCenter/index')"
+        >
           <view class="menu-icon green">
             <uni-icons type="bars" size="20" color="#52c41a"></uni-icons>
           </view>
@@ -40,7 +46,7 @@
         </view>
         <view class="menu-item" @click="navigateTo('/pages/user/abnormal')">
           <view class="menu-icon red">
-            <uni-icons type="info-filled" size="20" color="#EF4444"></uni-icons>
+            <uni-icons type="info-filled" size="20" color="#f7728a"></uni-icons>
           </view>
           <text class="menu-text">异常信息</text>
           <uni-icons type="right" size="16" color="#ccc"></uni-icons>
