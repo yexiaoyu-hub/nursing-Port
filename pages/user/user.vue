@@ -44,14 +44,17 @@
           <text class="menu-text">我的数据</text>
           <uni-icons type="right" size="16" color="#ccc"></uni-icons>
         </view>
-        <view class="menu-item" @click="navigateTo('/pages/user/abnormal')">
+        <view
+          class="menu-item"
+          @click="navigateTo('/pages/user/ExceptionalInfo/ExceptionalInfo')"
+        >
           <view class="menu-icon red">
             <uni-icons type="info-filled" size="20" color="#f7728a"></uni-icons>
           </view>
           <text class="menu-text">异常信息</text>
           <uni-icons type="right" size="16" color="#ccc"></uni-icons>
         </view>
-        <view class="menu-item" @click="navigateTo('/pages/user/messages')">
+        <view class="menu-item" @click="showDeveloping">
           <view class="menu-icon orange">
             <uni-icons
               type="notification"
@@ -66,21 +69,27 @@
 
       <!-- 辅助功能 -->
       <view class="menu-card">
-        <view class="menu-item" @click="navigateTo('/pages/user/help')">
+        <view class="menu-item" @click="showDeveloping">
           <view class="menu-icon cyan">
             <uni-icons type="help" size="20" color="#13c2c2"></uni-icons>
           </view>
           <text class="menu-text">帮助与反馈</text>
           <uni-icons type="right" size="16" color="#ccc"></uni-icons>
         </view>
-        <view class="menu-item" @click="navigateTo('/pages/user/agreement')">
+        <view
+          class="menu-item"
+          @click="navigateTo('/pages/user/privacyAgreement/userAgreement')"
+        >
           <view class="menu-icon gray">
             <uni-icons type="wallet" size="20" color="#8c8c8c"></uni-icons>
           </view>
           <text class="menu-text">用户协议</text>
           <uni-icons type="right" size="16" color="#ccc"></uni-icons>
         </view>
-        <view class="menu-item" @click="navigateTo('/pages/user/privacy')">
+        <view
+          class="menu-item"
+          @click="navigateTo('/pages/user/privacyAgreement/userPrivacy')"
+        >
           <view class="menu-icon gray">
             <uni-icons type="locked" size="20" color="#8c8c8c"></uni-icons>
           </view>
@@ -103,7 +112,12 @@ const navigateTo = (url) => {
     url,
   });
 };
-
+const showDeveloping = () => {
+  uni.showToast({
+    title: "正在开发中",
+    icon: "none",
+  });
+};
 const logout = () => {
   uni.showModal({
     title: "提示",
@@ -113,6 +127,9 @@ const logout = () => {
         uni.showToast({
           title: "已退出登录",
           icon: "success",
+        });
+        uni.navigateTo({
+          url: "/pages/login/login",
         });
       }
     },
