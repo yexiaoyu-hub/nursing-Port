@@ -58,6 +58,18 @@
           />
         </view>
 
+        <!-- 记住我 -->
+        <view class="remember-check">
+          <view
+            class="checkbox"
+            :class="{ checked: isRemember }"
+            @click="toggleRemember"
+          >
+            <text v-if="isRemember" class="check-icon">✓</text>
+          </view>
+          <text class="remember-text">记住我</text>
+        </view>
+
         <!-- 协议勾选 -->
         <view class="agreement-check">
           <view
@@ -78,7 +90,14 @@
         </view>
 
         <!-- 登录按钮 -->
-        <button class="login-btn" @click="handleLogin">登录</button>
+        <button
+          class="login-btn"
+          :class="{ loading: isLoading }"
+          :disabled="isLoading"
+          @click="handleLogin"
+        >
+          {{ isLoading ? "登录中..." : "登录" }}
+        </button>
       </view>
     </view>
 
@@ -94,6 +113,11 @@
 
 <script setup>
 import { ref } from "vue";
+import {
+  getTenantIdByNameService,
+  loginByPasswordService,
+  getUserInfoService,
+} from "@/api/login.js";
 
 // 登录表单数据
 const form = ref({
@@ -108,13 +132,53 @@ const focusedField = ref("");
 // 是否同意协议
 const isAgreed = ref(false);
 
+// 是否记住我
+const isRemember = ref(false);
+
+// 是否正在登录中
+const isLoading = ref(false);
+
 // 切换协议勾选
 const toggleAgreement = () => {
   isAgreed.value = !isAgreed.value;
 };
 
+// 切换记住我
+const toggleRemember = () => {
+  isRemember.value = !isRemember.value;
+};
+
+// 页面加载时检查是否有记住的账号
+const loadRememberedAccount = () => {
+  const remembered = uni.getStorageSync("rememberedAccount");
+  if (remembered) {
+    form.value.tenant = remembered.tenant || "";
+    form.value.username = remembered.username || "";
+    isRemember.value = true;
+  }
+};
+
+// 保存记住的账号
+const saveRememberedAccount = () => {
+  if (isRemember.value) {
+    uni.setStorageSync("rememberedAccount", {
+      tenant: form.value.tenant,
+      username: form.value.username,
+    });
+  } else {
+    uni.removeStorageSync("rememberedAccount");
+  }
+};
+
+// 页面加载时执行
+loadRememberedAccount();
+
 // 登录
-const handleLogin = () => {
+const handleLogin = async () => {
+  if (!form.value.tenant) {
+    uni.showToast({ title: "请输入租户", icon: "none" });
+    return;
+  }
   if (!form.value.username) {
     uni.showToast({ title: "请输入账号", icon: "none" });
     return;
@@ -128,11 +192,54 @@ const handleLogin = () => {
     return;
   }
 
-  // 模拟登录成功
-  uni.showToast({ title: "登录成功", icon: "success" });
-  setTimeout(() => {
-    uni.switchTab({ url: "/pages/index/index" });
-  }, 1500);
+  if (isLoading.value) return;
+  isLoading.value = true;
+
+  uni.showLoading({ title: "登录中...", mask: true });
+
+  try {
+    // 根据租户名称获取租户ID
+    const tenantId = await getTenantIdByNameService({
+      name: form.value.tenant,
+    });
+    if (!tenantId) {
+      uni.showToast({ title: "暂无该企业租户", icon: "none" });
+      return;
+    }
+
+    // 使用账号密码登录
+    const loginRes = await loginByPasswordService(
+      {
+        username: form.value.username,
+        password: form.value.password,
+        rememberMe: true,
+      },
+      { "tenant-id": tenantId }
+    );
+
+    // 保存 token
+    uni.setStorageSync("token", loginRes.token || loginRes.accessToken);
+    uni.setStorageSync("tenantId", tenantId);
+
+    // 获取用户详细信息
+    const userInfo = await getUserInfoService();
+    uni.setStorageSync("userInfo", userInfo);
+
+    // 保存记住的账号
+    saveRememberedAccount();
+
+    uni.hideLoading();
+    uni.showToast({ title: "登录成功", icon: "success" });
+
+    setTimeout(() => {
+      uni.switchTab({ url: "/pages/index/index" });
+    }, 1500);
+  } catch (error) {
+    uni.hideLoading();
+    uni.showToast({ title: error.message || "登录失败", icon: "none" });
+  } finally {
+    isLoading.value = false;
+  }
 };
 
 // 跳转用户协议
@@ -240,10 +347,44 @@ const navigateToPrivacy = () => {
         }
       }
 
+      // 记住我
+      .remember-check {
+        display: flex;
+        align-items: center;
+        margin-bottom: 30rpx;
+
+        .checkbox {
+          width: 32rpx;
+          height: 32rpx;
+          border: 2rpx solid #ccc;
+          border-radius: 6rpx;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-right: 12rpx;
+
+          &.checked {
+            background-color: #4a90d9;
+            border-color: #4a90d9;
+          }
+
+          .check-icon {
+            color: #fff;
+            font-size: 20rpx;
+          }
+        }
+
+        .remember-text {
+          font-size: 26rpx;
+          color: #666;
+        }
+      }
+
       // 协议勾选
       .agreement-check {
         display: flex;
         align-items: center;
+        justify-content: center;
         margin-bottom: 40rpx;
         flex-wrap: wrap;
 
@@ -296,6 +437,14 @@ const navigateToPrivacy = () => {
 
         &:active {
           opacity: 0.9;
+        }
+
+        &.loading {
+          opacity: 0.7;
+        }
+
+        &[disabled] {
+          opacity: 0.6;
         }
       }
     }

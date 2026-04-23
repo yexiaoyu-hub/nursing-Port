@@ -107,6 +107,15 @@
 </template>
 
 <script setup>
+import { onShow } from "@dcloudio/uni-app";
+import { pageGuard } from "@/utils/routerGuard.js";
+import { logoutService } from "@/api/login.js";
+
+// 页面显示时进行登录检查
+onShow(() => {
+  pageGuard();
+});
+
 const navigateTo = (url) => {
   uni.navigateTo({
     url,
@@ -118,17 +127,30 @@ const showDeveloping = () => {
     icon: "none",
   });
 };
-const logout = () => {
+const logout = async () => {
   uni.showModal({
     title: "提示",
     content: "确定要退出登录吗？",
-    success: (res) => {
+    success: async (res) => {
       if (res.confirm) {
+        try {
+          // 调用退出登录接口
+          await logoutService();
+        } catch (error) {
+          console.log("退出登录接口调用失败", error);
+        }
+
+        // 清除本地存储的登录信息
+        uni.removeStorageSync("token");
+        uni.removeStorageSync("userInfo");
+        uni.removeStorageSync("tenantId");
+
         uni.showToast({
           title: "已退出登录",
           icon: "success",
         });
-        uni.navigateTo({
+
+        uni.reLaunch({
           url: "/pages/login/login",
         });
       }

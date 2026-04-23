@@ -1,14 +1,38 @@
 //首页服务卡片
 <script setup>
+import { computed } from "vue";
+
 const props = defineProps({
   labelblue: {
     type: Array,
     default: () => [],
   },
-  time: {
+  photo: {
     type: String,
-    default: "9:00 - 10:00",
+    default: "",
   },
+  serTime: {
+    type: Number,
+    default: 0,
+  },
+  orderSerTimes: {
+    type: Number,
+    default: 0,
+  },
+  label: {
+    type: String,
+    default: "",
+  },
+});
+
+// 是否为机构护理
+const isInstitutionCare = computed(() => props.label === "机构护理");
+
+// 计算服务进度百分比（只显示整数）
+const progressPercent = computed(() => {
+  if (!props.orderSerTimes || props.orderSerTimes <= 0) return 0;
+  const percent = (props.serTime / props.orderSerTimes) * 100;
+  return Math.floor(percent);
 });
 </script>
 
@@ -17,7 +41,14 @@ const props = defineProps({
   <view class="ServiceCard">
     <view class="card">
       <view class="cardheader">
-        <view class="touxiang"></view>
+        <view class="touxiang">
+          <image
+            v-if="photo"
+            :src="photo"
+            mode="aspectFill"
+            class="touxiang-img"
+          />
+        </view>
         <view class="Information">
           <text class="name"><slot name="name"></slot></text>
           <text class="info">
@@ -49,20 +80,28 @@ const props = defineProps({
       <view class="below">
         <view class="plan">
           <view class="planleft">服务时长进度</view>
-          <view class="planright">50%</view>
+          <view class="planright">{{ progressPercent }}%</view>
         </view>
         <view class="step">
           <view class="stepmax">
-            <view class="stepmin"></view>
+            <view
+              class="stepmin"
+              :style="{ width: progressPercent + '%' }"
+            ></view>
           </view>
         </view>
       </view>
       <view
         style="margin: 10rpx 0 30rpx 0; height: 2rpx; background-color: #e7e7e9"
       ></view>
-      <view class="button">
-        <button class="buttonmin">一键拨号</button>
-        <button class="buttonmin">开始执行</button>
+      <view class="button" :class="{ 'button-single': isInstitutionCare }">
+        <button v-if="!isInstitutionCare" class="buttonmin">一键拨号</button>
+        <button
+          class="buttonmin"
+          :class="{ 'buttonmin-full': isInstitutionCare }"
+        >
+          开始执行
+        </button>
       </view>
     </view>
   </view>
@@ -96,6 +135,13 @@ const props = defineProps({
         height: 80rpx;
         background-color: #d5e6ff;
         border-radius: 20rpx;
+        overflow: hidden;
+
+        .touxiang-img {
+          width: 100%;
+          height: 100%;
+          border-radius: 20rpx;
+        }
       }
       .Information {
         flex: 1;
@@ -125,8 +171,10 @@ const props = defineProps({
       }
     }
     .labelone {
-      width: 160rpx;
+      min-width: 120rpx;
+      max-width: 260rpx;
       height: 40rpx;
+      padding: 0 5rpx;
       margin-right: 15rpx;
       border-radius: 20rpx;
       border: 1rpx solid #a6a6a6;
@@ -137,6 +185,9 @@ const props = defineProps({
       color: #959595;
       text-align: center;
       font-size: 26rpx;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .middle {
       width: 100%;
@@ -153,10 +204,10 @@ const props = defineProps({
         flex: 1;
         margin-top: 20rpx;
         display: flex;
+        flex-wrap: wrap;
+        gap: 15rpx;
         .labelblue-one {
-          width: 100rpx;
-          height: 100%;
-          margin-right: 15rpx;
+          padding: 5rpx 20rpx;
           border-radius: 20rpx;
           border: 1rpx solid #598eff;
           display: flex;
@@ -166,6 +217,7 @@ const props = defineProps({
           color: #1677ff;
           text-align: center;
           font-size: 26rpx;
+          white-space: nowrap;
         }
       }
     }
@@ -223,10 +275,13 @@ const props = defineProps({
       justify-content: space-around;
       padding: 0 10rpx;
       box-sizing: border-box;
+      &.button-single {
+        justify-content: center;
+      }
       .buttonmin {
-        width: 185rpx;
+        width: 280rpx;
         height: 90%;
-        border-radius: 30rpx;
+        border-radius: 20rpx;
         font-size: 24rpx;
         font-weight: 700;
         display: flex;
@@ -238,6 +293,10 @@ const props = defineProps({
       .buttonmin:last-child {
         background-color: #1677ff;
         color: #fff;
+      }
+      .buttonmin-full {
+        width: 100%;
+        max-width: 600rpx;
       }
     }
   }

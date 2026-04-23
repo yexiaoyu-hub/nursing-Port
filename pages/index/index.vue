@@ -1,49 +1,189 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
 import ServiceCard from "@/components/ServiceCard.vue";
+import { pageGuard } from "@/utils/routerGuard.js";
+import { getServiceOrderService } from "@/api/index.js";
+import { getDictDataSimpleList } from "@/api/dict/dict.js";
 
+// 字典数据缓存
+const dictDataMap = ref({});
+
+// 页面显示时进行
+onShow(async () => {
+  pageGuard(); // 登录路由检查
+  getUserInfo(); // 获取用户信息
+  await fetchDictData(); // 获取字典数据
+  await fetchServiceOrderData(); // 获取服务工单数据
+});
+
+// 获取字典数据
+const fetchDictData = async () => {
+  // 先尝试从本地缓存读取
+  const cachedDict = uni.getStorageSync("dictData");
+  if (cachedDict) {
+    dictDataMap.value = cachedDict;
+    return;
+  }
+  // 本地没有缓存，从接口获取
+  try {
+    const res = await getDictDataSimpleList();
+    if (Array.isArray(res) && res.length > 0) {
+      // 将字典数据转换为 Map 格式
+      // 格式: { dictType: { value: label } }
+      const dictMap = {};
+      res.forEach((item) => {
+        if (!dictMap[item.dictType]) {
+          dictMap[item.dictType] = {};
+        }
+        dictMap[item.dictType][item.value] = item.label;
+      });
+      dictDataMap.value = dictMap;
+      // 缓存到本地存储
+      uni.setStorageSync("dictData", dictMap);
+    }
+  } catch (error) {
+    console.error("获取字典数据失败:", error);
+  }
+};
+
+// 看板数据
 const kanbanData = ref([
-  { id: 1, name: "待服务订单", count: 2 },
-  { id: 2, name: "已服务订单", count: 0 },
-  { id: 3, name: "累计服务时长", count: "—" },
-  { id: 4, name: "待服务老人数", count: 2 },
+  { id: 1, name: "今日待服务订单", count: 0 },
+  { id: 2, name: "今日已服务订单", count: 0 },
+  { id: 3, name: "今日累计时长", count: 0 },
+  { id: 4, name: "今日服务老人", count: 0 },
 ]);
 
-const cardfrom = ref([
-  //任务单数据
-  {
-    id: 1,
-    name: "张三",
-    gender: "男",
-    age: 88,
-    address: "皇后大道东",
-    label: "机构护理",
-    disability: "中度",
-    labelblue: ["翻身", "洗浴", "按摩"],
-    time: "9:00 - 10:00",
-  },
-  {
-    id: 2,
-    name: "李四",
-    gender: "女",
-    age: 80,
-    address: "皇后大道西",
-    label: "机构护理",
-    disability: "轻度",
-    labelblue: ["喂食", "护理"],
-    time: "10:00 - 11:00",
-  },
-]);
+// 用户信息
+const userInfo = ref({
+  nickname: "",
+  avatar: "",
+  tenantName: "",
+});
+
+// 获取用户信息
+const getUserInfo = () => {
+  const storedUserInfo = uni.getStorageSync("userInfo");
+  const storedAccount = uni.getStorageSync("rememberedAccount");
+
+  let nickname = "";
+  let avatar = "";
+  let tenantName = "";
+
+  if (storedUserInfo && storedUserInfo.user) {
+    nickname = storedUserInfo.user.nickname || "";
+    avatar = storedUserInfo.user.avatar || "";
+  }
+  if (storedAccount && storedAccount.tenant) {
+    tenantName = storedAccount.tenant;
+  }
+
+  userInfo.value = {
+    nickname,
+    avatar,
+    tenantName,
+  };
+};
+
+// 订单列表数据
+const cardfrom = ref([]);
+
+// 获取服务工单数据
+const fetchServiceOrderData = async () => {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const data = await getServiceOrderService({ serviceDate: today });
+    if (data) {
+      // 更新看板数据
+      kanbanData.value = [
+        {
+          id: 1,
+          name: "今日待服务订单",
+          count: data.pendingTodayServiceOrderCount || 0,
+        },
+        {
+          id: 2,
+          name: "今日已服务订单",
+          count: data.completedTodayServiceOrderCount || 0,
+        },
+        { id: 3, name: "今日累计时长", count: data.totalTime || 0 },
+        { id: 4, name: "今日服务老人", count: data.totalAgedCount || 0 },
+      ];
+
+      // 更新订单列表
+      if (
+        data.orderList &&
+        Array.isArray(data.orderList) &&
+        data.orderList.length > 0
+      ) {
+        cardfrom.value = data.orderList.map((order) => ({
+          id: order.id,
+          name: order.fullname,
+          photo: order.photo,
+          gender: "—",
+          age: "—",
+          address: order.orderAddress || "——",
+          label: getServiceTypeText(order.orderHuiliType),
+          disability: getDisabilityLevelText(order.shinengLevelid),
+          labelblue: order.projectList
+            ? order.projectList.map((p) => p.projectName)
+            : [],
+          time: order.orderDispatchDate
+            ? new Date(order.orderDispatchDate)
+                .toLocaleString("zh-CN", {
+                  year: "numeric",
+                  month: "2-digit",
+                  day: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+                .replace(/\//g, "-")
+            : "",
+          orderSerTimes: order.orderSerTimes,
+          serTime: order.serTime || 0,
+        }));
+      } else {
+        cardfrom.value = [];
+      }
+    }
+  } catch (error) {
+    console.error("获取服务工单失败:", error);
+    uni.showToast({
+      title: "获取数据失败",
+      icon: "none",
+    });
+  }
+};
+
+// 获取服务方式
+const getServiceTypeText = (type) => {
+  return dictDataMap.value["changhu_nursing_type"]?.[type] || "";
+};
+
+// 获取失能等级
+const getDisabilityLevelText = (level) => {
+  return dictDataMap.value["changhu_sndj"]?.[level] || "";
+};
 </script>
 
 
 <template>
   <view class="mypage">
     <view class="header">
-      <view class="touxiang"></view>
+      <view class="touxiang">
+        <image
+          v-if="userInfo.avatar"
+          :src="userInfo.avatar"
+          mode="aspectFill"
+          class="touxiang-img"
+        />
+      </view>
       <view class="headername">
-        <text class="text">张三</text>
-        <text class="mintext">某机构•护理人员</text>
+        <text class="text">{{ userInfo.nickname || "某护理人员" }}</text>
+        <text class="mintext">{{
+          userInfo.tenantName ? userInfo.tenantName + "•护理人员" : "护理人员"
+        }}</text>
       </view>
     </view>
     <view class="kanban">
@@ -53,7 +193,14 @@ const cardfrom = ref([
       <view class="shuju">
         <view class="sjkuang" v-for="item in kanbanData" :key="item.id">
           <text class="text1">{{ item.name }}</text>
-          <text class="text2">{{ item.count }}</text>
+          <text class="text2"
+            >{{ item.count
+            }}<text
+              v-if="item.id === 3"
+              style="font-size: 30rpx; margin-left: 20rpx; color: #778599"
+              >min</text
+            ></text
+          >
         </view>
       </view>
     </view>
@@ -65,10 +212,15 @@ const cardfrom = ref([
         class="timeline-wrapper"
         style="padding-bottom: calc(100rpx + env(safe-area-inset-bottom))"
       >
+        <!-- 空状态 -->
+        <view v-if="cardfrom.length === 0" class="empty-state">
+          <text class="empty-text">今日暂无待服务任务</text>
+        </view>
         <view
           v-for="(item, index) in cardfrom"
           :key="item.id"
           class="timeline-item"
+          v-else
         >
           <view class="timeline-left">
             <view class="timeline-track">
@@ -82,7 +234,13 @@ const cardfrom = ref([
           <view class="timeline-right">
             <view class="timeline-time">{{ item.time }}</view>
             <view class="timeline-content">
-              <ServiceCard :labelblue="item.labelblue">
+              <ServiceCard
+                :labelblue="item.labelblue"
+                :photo="item.photo"
+                :serTime="item.serTime"
+                :orderSerTimes="item.orderSerTimes"
+                :label="item.label"
+              >
                 <template #name
                   ><text>{{ item.name }}</text></template
                 >
@@ -127,9 +285,14 @@ const cardfrom = ref([
     height: 120rpx;
     border-radius: 20rpx;
     background-color: #8ab7fc;
+    overflow: hidden;
+    .touxiang-img {
+      width: 100%;
+      height: 100%;
+    }
   }
   .headername {
-    width: 250rpx;
+    width: 500rpx;
     margin-left: 30rpx;
     display: flex;
     flex-direction: column;
@@ -190,6 +353,18 @@ const cardfrom = ref([
   }
 
   .timeline-wrapper {
+    .empty-state {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 100rpx 0;
+
+      .empty-text {
+        font-size: 28rpx;
+        color: #999;
+      }
+    }
+
     .timeline-item {
       display: flex;
       margin-bottom: 30rpx;
@@ -226,7 +401,7 @@ const cardfrom = ref([
         flex: 1;
 
         .timeline-time {
-          font-size: 24rpx;
+          font-size: 26rpx;
           color: #666;
           margin-bottom: 12rpx;
           padding-left: 16rpx;
