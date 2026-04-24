@@ -48,12 +48,7 @@ const fetchDictData = async () => {
 };
 
 // 看板数据
-const kanbanData = ref([
-  { id: 1, name: "今日待服务订单", count: 0 },
-  { id: 2, name: "今日已服务订单", count: 0 },
-  { id: 3, name: "今日累计时长", count: 0 },
-  { id: 4, name: "今日服务老人", count: 0 },
-]);
+const kanbanData = ref([]);
 
 // 用户信息
 const userInfo = ref({

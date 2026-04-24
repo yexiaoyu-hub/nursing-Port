@@ -4,6 +4,62 @@ const service = {
     timeout: 5000
 }
 
+// 是否正在刷新令牌
+let isRefreshing = false
+// 等待刷新令牌的请求队列
+let refreshQueue = []
+
+// 刷新令牌
+const refreshToken = () => {
+    return new Promise((resolve, reject) => {
+        const refreshToken = uni.getStorageSync('refreshToken')
+        if (!refreshToken) {
+            reject(new Error('没有刷新令牌'))
+            return
+        }
+
+        uni.request({
+            url: `${service.baseURL}/system/auth/refresh-token`,
+            method: 'POST',
+            header: {
+                'Content-Type': 'application/json'
+            },
+            data: { refreshToken },
+            success: (res) => {
+                if (res.statusCode === 200 && res.data && res.data.code === 0) {
+                    const { accessToken, refreshToken: newRefreshToken } = res.data.data || {}
+                    if (accessToken) {
+                        uni.setStorageSync('token', accessToken)
+                        if (newRefreshToken) {
+                            uni.setStorageSync('refreshToken', newRefreshToken)
+                        }
+                        resolve(accessToken)
+                    } else {
+                        reject(new Error('刷新令牌失败'))
+                    }
+                } else {
+                    reject(new Error('刷新令牌失败'))
+                }
+            },
+            fail: (error) => {
+                reject(error)
+            }
+        })
+    })
+}
+
+// 跳转到登录页
+const goToLogin = () => {
+    uni.showToast({ title: '登录过期，请重新登录', icon: 'none' })
+    uni.removeStorageSync('token')
+    uni.removeStorageSync('refreshToken')
+    uni.removeStorageSync('userInfo')
+    uni.removeStorageSync('tenantId')
+    setTimeout(() => {
+        uni.reLaunch({ url: '/pages/login/login' })
+    }, 1500)
+}
+
 // 请求拦截器（统一加 token、请求头）
 const requestInterceptor = (config) => {
     // 添加基础URL
@@ -44,7 +100,7 @@ const requestInterceptor = (config) => {
 }
 
 // 响应拦截器（统一处理返回结果、错误）
-const responseInterceptor = (response) => {
+const responseInterceptor = (response, config) => {
     const { statusCode, data } = response
 
     // 请求成功
@@ -61,14 +117,43 @@ const responseInterceptor = (response) => {
 
     // 处理 HTTP 错误状态码
     if (statusCode === 401) {
-        uni.showToast({ title: '登录过期，请重新登录', icon: 'none' })
-        uni.removeStorageSync('token')
-        uni.removeStorageSync('userInfo')
-        uni.removeStorageSync('tenantId')
-        setTimeout(() => {
-            uni.reLaunch({ url: '/pages/login/login' })
-        }, 1500)
-        return Promise.reject(new Error('登录过期'))
+        // 尝试刷新令牌
+        if (!isRefreshing) {
+            isRefreshing = true
+            return refreshToken().then((newToken) => {
+                // 刷新成功，重试队列中的请求
+                refreshQueue.forEach(cb => cb(newToken))
+                refreshQueue = []
+                isRefreshing = false
+                // 重试当前请求
+                return request({
+                    ...config,
+                    header: {
+                        ...config.header,
+                        'Authorization': `Bearer ${newToken}`
+                    }
+                })
+            }).catch(() => {
+                // 刷新失败，跳转到登录页
+                isRefreshing = false
+                refreshQueue = []
+                goToLogin()
+                return Promise.reject(new Error('登录过期'))
+            })
+        } else {
+            // 正在刷新中，将请求加入队列等待
+            return new Promise((resolve) => {
+                refreshQueue.push((newToken) => {
+                    resolve(request({
+                        ...config,
+                        header: {
+                            ...config.header,
+                            'Authorization': `Bearer ${newToken}`
+                        }
+                    }))
+                })
+            })
+        }
     }
 
     uni.showToast({ title: data.msg || data.message || `请求失败: ${statusCode}`, icon: 'none' })
@@ -79,13 +164,14 @@ const responseInterceptor = (response) => {
 const request = (config) => {
     return new Promise((resolve, reject) => {
         // 应用请求拦截器
+        const originalConfig = { ...config }
         config = requestInterceptor(config)
 
         uni.request({
             ...config,
             success: (response) => {
                 try {
-                    const result = responseInterceptor(response)
+                    const result = responseInterceptor(response, originalConfig)
                     resolve(result)
                 } catch (error) {
                     reject(error)

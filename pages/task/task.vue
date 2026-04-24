@@ -45,66 +45,15 @@
       </view>
     </view>
 
-    <!-- 日期筛选弹窗 -->
-    <view class="date-filter-popup" v-if="showDateFilter">
-      <view class="filter-mask" @click="closeDateFilter"></view>
-      <view class="filter-content">
-        <view class="filter-title">选择日期范围</view>
-        <view class="date-picker-wrapper">
-          <picker-view
-            class="date-picker"
-            :value="startDateValue"
-            @change="onStartDatePickerChange"
-          >
-            <picker-view-column>
-              <view class="picker-item" v-for="year in years" :key="year"
-                >{{ year }}年</view
-              >
-            </picker-view-column>
-            <picker-view-column>
-              <view class="picker-item" v-for="month in months" :key="month"
-                >{{ month }}月</view
-              >
-            </picker-view-column>
-            <picker-view-column>
-              <view class="picker-item" v-for="day in days" :key="day"
-                >{{ day }}日</view
-              >
-            </picker-view-column>
-          </picker-view>
-          <view class="picker-label">开始日期</view>
-        </view>
-        <view class="date-separator">至</view>
-        <view class="date-picker-wrapper">
-          <picker-view
-            class="date-picker"
-            :value="endDateValue"
-            @change="onEndDatePickerChange"
-          >
-            <picker-view-column>
-              <view class="picker-item" v-for="year in years" :key="year"
-                >{{ year }}年</view
-              >
-            </picker-view-column>
-            <picker-view-column>
-              <view class="picker-item" v-for="month in months" :key="month"
-                >{{ month }}月</view
-              >
-            </picker-view-column>
-            <picker-view-column>
-              <view class="picker-item" v-for="day in days" :key="day"
-                >{{ day }}日</view
-              >
-            </picker-view-column>
-          </picker-view>
-          <view class="picker-label">结束日期</view>
-        </view>
-        <view class="filter-actions">
-          <view class="btn-clear" @click="clearDateFilter">清空</view>
-          <view class="btn-confirm" @click="confirmDateFilter">确定</view>
-        </view>
-      </view>
-    </view>
+    <!-- 日期范围选择器组件 -->
+    <DateRangePicker
+      v-model:show="showDateFilter"
+      :begin-date="startDate"
+      :end-date="endDate"
+      title="选择日期范围"
+      @confirm="onDateConfirm"
+      @clear="onDateClear"
+    />
 
     <!-- 任务列表 -->
     <view class="task-list">
@@ -121,6 +70,7 @@
 <script setup>
 import { ref, computed } from "vue";
 import TaskCard from "@/components/TaskCard.vue";
+import DateRangePicker from "@/components/DateRangePicker.vue";
 
 // 顶部标签
 const tabs = [
@@ -138,23 +88,13 @@ const searchKeyword = ref("");
 
 // 日期筛选相关
 const showDateFilter = ref(false);
-const tempStartDate = ref("");
-const tempEndDate = ref("");
 const startDate = ref("");
 const endDate = ref("");
-const startDateValue = ref([0, 0, 0]);
-const endDateValue = ref([0, 0, 0]);
 
 // 是否有日期筛选
 const hasDateFilter = computed(() => {
   return startDate.value && endDate.value;
 });
-
-// 生成日期数据
-const currentYear = new Date().getFullYear();
-const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
-const months = Array.from({ length: 12 }, (_, i) => i + 1);
-const days = Array.from({ length: 31 }, (_, i) => i + 1);
 
 // 模拟任务数据
 const taskList = ref([
@@ -238,73 +178,24 @@ const switchTab = (value) => {
 // 打开日期筛选
 const openCalendar = () => {
   showDateFilter.value = true;
-  tempStartDate.value = startDate.value;
-  tempEndDate.value = endDate.value;
 };
 
-// 关闭日期筛选
-const closeDateFilter = () => {
-  showDateFilter.value = false;
-};
-
-// 开始日期选择器变化
-const onStartDatePickerChange = (e) => {
-  const [yearIndex, monthIndex, dayIndex] = e.detail.value;
-  const year = years[yearIndex];
-  const month = months[monthIndex];
-  const day = days[dayIndex];
-  tempStartDate.value = `${year}-${String(month).padStart(2, "0")}-${String(
-    day
-  ).padStart(2, "0")}`;
-  startDateValue.value = e.detail.value;
-};
-
-// 结束日期选择器变化
-const onEndDatePickerChange = (e) => {
-  const [yearIndex, monthIndex, dayIndex] = e.detail.value;
-  const year = years[yearIndex];
-  const month = months[monthIndex];
-  const day = days[dayIndex];
-  tempEndDate.value = `${year}-${String(month).padStart(2, "0")}-${String(
-    day
-  ).padStart(2, "0")}`;
-  endDateValue.value = e.detail.value;
-};
-
-// 清空日期筛选
-const clearDateFilter = () => {
-  tempStartDate.value = "";
-  tempEndDate.value = "";
-  startDate.value = "";
-  endDate.value = "";
-  showDateFilter.value = false;
+// 确认日期筛选
+const onDateConfirm = (beginDate, endDate) => {
+  startDate.value = beginDate;
+  endDate.value = endDate;
   uni.showToast({
-    title: "已清空日期筛选",
+    title: `已筛选：${startDate.value} 至 ${endDate.value}`,
     icon: "none",
   });
 };
 
-// 确认日期筛选
-const confirmDateFilter = () => {
-  if (!tempStartDate.value || !tempEndDate.value) {
-    uni.showToast({
-      title: "请选择完整的日期范围",
-      icon: "none",
-    });
-    return;
-  }
-  if (tempStartDate.value > tempEndDate.value) {
-    uni.showToast({
-      title: "开始日期不能晚于结束日期",
-      icon: "none",
-    });
-    return;
-  }
-  startDate.value = tempStartDate.value;
-  endDate.value = tempEndDate.value;
-  showDateFilter.value = false;
+// 清空日期筛选
+const onDateClear = () => {
+  startDate.value = "";
+  endDate.value = "";
   uni.showToast({
-    title: `已筛选：${startDate.value} 至 ${endDate.value}`,
+    title: "已清空日期筛选",
     icon: "none",
   });
 };
@@ -367,104 +258,6 @@ const confirmDateFilter = () => {
       border-radius: 50%;
     }
   }
-}
-
-// 日期筛选弹窗
-.date-filter-popup {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1000;
-
-  .filter-mask {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-  }
-
-  .filter-content {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: #fff;
-    border-radius: 20rpx;
-    padding: 40rpx 30rpx;
-    width: 600rpx;
-
-    .filter-title {
-      font-size: 32rpx;
-      font-weight: 600;
-      color: #333;
-      text-align: center;
-      margin-bottom: 30rpx;
-    }
-
-    .date-picker-wrapper {
-      margin-bottom: 20rpx;
-
-      .date-picker {
-        height: 300rpx;
-
-        .picker-item {
-          line-height: 100rpx;
-          text-align: center;
-          font-size: 28rpx;
-        }
-      }
-
-      .picker-label {
-        text-align: center;
-        font-size: 24rpx;
-        color: #999;
-        margin-top: 10rpx;
-      }
-    }
-
-    .date-separator {
-      text-align: center;
-      font-size: 28rpx;
-      color: #666;
-      margin: 20rpx 0;
-    }
-
-    .filter-actions {
-      display: flex;
-      gap: 20rpx;
-      margin-top: 30rpx;
-
-      .btn-clear,
-      .btn-confirm {
-        flex: 1;
-        height: 80rpx;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 40rpx;
-        font-size: 28rpx;
-      }
-
-      .btn-clear {
-        background-color: #f5f5f5;
-        color: #666;
-      }
-
-      .btn-confirm {
-        background-color: #007aff;
-        color: #fff;
-      }
-    }
-  }
-}
-
-.btn-confirm-inline {
-  background-color: #007aff;
-  color: #fff;
 }
 
 // 搜索框

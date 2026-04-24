@@ -1,7 +1,9 @@
 //老人页面
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
+import { onPullDownRefresh, onReachBottom } from "@dcloudio/uni-app";
 import ElderlyCard from "@/components/ElderlyCard.vue";
+import { getAgedPage } from "@/api/older/older.js";
 
 // 筛选选项
 const filterList = ref([
@@ -83,100 +85,160 @@ const selectCurrentFilter = (value: string) => {
 };
 
 // 老人列表数据
-const allElderlyList = ref([
-  {
-    id: 1,
-    name: "张三",
-    gender: "男",
-    age: 78,
-    bedNo: "3F-301-01",
-    status: "机构护理",
-    statusColor: "green",
-    disability: "中度",
-    careLevel: "二级",
-    bedStatus: "在床",
-  },
-  {
-    id: 2,
-    name: "李红",
-    gender: "女",
-    age: 84,
-    bedNo: "2F-206-02",
-    status: "居家护理",
-    statusColor: "orange",
-    disability: "重度",
-    careLevel: "三级",
-    bedStatus: "离床",
-  },
-  {
-    id: 3,
-    name: "王五",
-    gender: "男",
-    age: 72,
-    bedNo: "3F-302-01",
-    status: "社区护理",
-    statusColor: "green",
-    disability: "轻度",
-    careLevel: "一级",
-    bedStatus: "在床",
-  },
-]);
+const allElderlyList = ref<any[]>([]);
+const loading = ref(false);
+const pageNo = ref(1);
+const pageSize = ref(10);
+const total = ref(0);
+const hasMore = computed(() => allElderlyList.value.length < total.value);
 
 // 搜索关键词
 const searchKeyword = ref("");
 
-// 过滤后的列表
+// 过滤后的列表（前端筛选）
 const filteredList = computed(() => {
-  return allElderlyList.value.filter((item) => {
-    // 搜索关键词过滤
-    if (searchKeyword.value && !item.name.includes(searchKeyword.value)) {
-      return false;
-    }
-    // 性别筛选
-    if (
-      selectedFilters.value.gender &&
-      item.gender !== selectedFilters.value.gender
-    ) {
-      return false;
-    }
-    // 失能筛选
-    if (
-      selectedFilters.value.disability &&
-      item.disability !== selectedFilters.value.disability
-    ) {
-      return false;
-    }
-    // 护理方式筛选
-    if (
-      selectedFilters.value.careType &&
-      item.status !== selectedFilters.value.careType
-    ) {
-      return false;
-    }
-    return true;
-  });
+  let result = allElderlyList.value;
+
+  // 性别筛选
+  if (selectedFilters.value.gender) {
+    result = result.filter(
+      (item) => item.gender === selectedFilters.value.gender
+    );
+  }
+  // 失能筛选
+  if (selectedFilters.value.disability) {
+    result = result.filter(
+      (item) => item.disability === selectedFilters.value.disability
+    );
+  }
+  // 护理方式筛选
+  if (selectedFilters.value.careType) {
+    result = result.filter(
+      (item) => item.status === selectedFilters.value.careType
+    );
+  }
+
+  return result;
 });
 
-// 切换筛选下拉
+// 获取老人列表
+const fetchElderlyList = async (isLoadMore = false) => {
+  if (loading.value) return;
+  loading.value = true;
+
+  if (!isLoadMore) {
+    pageNo.value = 1;
+    allElderlyList.value = [];
+  }
+
+  try {
+    const params: any = {
+      pageNo: pageNo.value,
+      pageSize: pageSize.value,
+    };
+
+    // 搜索关键词
+    if (searchKeyword.value) {
+      params.keyword = searchKeyword.value;
+    }
+
+    const res = await getAgedPage(params);
+
+    // 处理接口返回的数据结构
+    const records = res?.list || [];
+
+    // 处理数据，添加 statusColor，并映射字段
+    const processedRecords = records.map((item: any) => ({
+      id: item.id,
+      name: item.agedName,
+      gender: item.sex === "1" ? "男" : "女",
+      age: item.age,
+      bedNo: item.juzhuAddress || "-",
+      status: item.nursingMode || "机构护理",
+      statusColor: getStatusColor(item.nursingMode),
+      disability: getDisabilityText(item.shinengLevelid),
+      photo: item.photo,
+    }));
+
+    if (isLoadMore) {
+      allElderlyList.value.push(...processedRecords);
+    } else {
+      allElderlyList.value = processedRecords;
+    }
+    total.value = res?.total || 0;
+  } catch (error) {
+    console.error("获取老人列表失败:", error);
+    uni.showToast({
+      title: "获取数据失败",
+      icon: "none",
+    });
+  } finally {
+    loading.value = false;
+    uni.stopPullDownRefresh();
+  }
+};
+
+// 根据护理类型获取颜色
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case "机构护理":
+      return "green";
+    case "居家护理":
+      return "orange";
+    case "社区护理":
+      return "blue";
+    default:
+      return "green";
+  }
+};
+
+// 根据失能等级获取显示文本
+const getDisabilityText = (level: string) => {
+  switch (level) {
+    case "0":
+      return "基本正常";
+    case "1":
+      return "轻度失能";
+    case "2":
+      return "中度失能";
+    case "3":
+      return "重度失能Ⅰ级";
+    case "4":
+      return "重度失能Ⅱ级";
+    case "5":
+      return "重度失能Ⅲ级";
+    default:
+      return level || "-";
+  }
+};
+
+// 加载更多
+const loadMore = () => {
+  if (hasMore.value && !loading.value) {
+    pageNo.value++;
+    fetchElderlyList(true);
+  }
+};
+
+// 切换筛选
 const switchFilter = (id: number) => {
-  if (currentFilter.value === id) {
-    currentFilter.value = null;
-  } else {
-    currentFilter.value = id;
-    // 打开时同步当前已确认的筛选值到临时值
+  filterList.value.forEach((item) => {
+    item.active = item.id === id && !item.active;
+  });
+  currentFilter.value =
+    currentFilter.value === id ? null : (id as number | null);
+
+  // 打开筛选时，初始化临时值为当前选中的值
+  if (currentFilter.value) {
     const filter = filterList.value.find((item) => item.id === id);
     if (filter) {
       tempFilters.value[filter.key as keyof typeof tempFilters.value] =
         selectedFilters.value[filter.key as keyof typeof selectedFilters.value];
     }
   }
-  // 更新激活状态
-  filterList.value.forEach((item) => {
-    item.active = item.id === currentFilter.value;
-  });
 };
 
-// 确定筛选（将临时值应用到实际筛选）
+// 确认筛选
 const confirmFilter = () => {
   const filter = filterList.value.find(
     (item) => item.id === currentFilter.value
@@ -189,6 +251,8 @@ const confirmFilter = () => {
   filterList.value.forEach((item) => {
     item.active = false;
   });
+  // 刷新列表
+  fetchElderlyList();
 };
 
 // 清空筛选（清空临时值）
@@ -221,6 +285,30 @@ const handleCardClick = (elderlyName: string) => {
     url: "/pages/oderFile/index?name=" + elderlyName,
   });
 };
+
+// 监听搜索关键词变化，防抖搜索
+let searchTimer: any = null;
+watch(searchKeyword, () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    fetchElderlyList();
+  }, 500);
+});
+
+// 页面加载时获取数据
+onMounted(() => {
+  fetchElderlyList();
+});
+
+// 页面生命周期 - 下拉刷新
+onPullDownRefresh(() => {
+  fetchElderlyList();
+});
+
+// 页面生命周期 - 上拉加载更多
+onReachBottom(() => {
+  loadMore();
+});
 </script>
 
 <template>
@@ -297,6 +385,19 @@ const handleCardClick = (elderlyName: string) => {
         @card-click="handleCardClick"
       />
 
+      <!-- 加载状态 -->
+      <view v-if="loading" class="loading-state">
+        <text>加载中...</text>
+      </view>
+
+      <!-- 空状态 -->
+      <view
+        v-if="!loading && (!filteredList || filteredList.length === 0)"
+        class="empty-state"
+      >
+        <text>暂无数据</text>
+      </view>
+
       <!-- 底部安全区域 -->
       <view style="height: calc(100rpx + env(safe-area-inset-bottom))"></view>
     </view>
@@ -354,36 +455,34 @@ const handleCardClick = (elderlyName: string) => {
   top: 100%;
   left: 0;
   right: 0;
-  z-index: 100;
+  z-index: 101;
 
   .filter-mask {
     position: fixed;
-    top: 180rpx;
+    top: 200rpx;
     left: 0;
     right: 0;
-    bottom: 100rpx;
+    bottom: 0;
     background-color: rgba(0, 0, 0, 0.5);
-    z-index: 99;
+    z-index: -1;
   }
 
   .filter-content {
-    position: relative;
     background-color: #fff;
-    z-index: 100;
-    padding: 30rpx;
-    box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+    padding: 20rpx 30rpx;
+    border-bottom: 1rpx solid #eee;
 
     .filter-options {
       display: flex;
       flex-wrap: wrap;
-      gap: 20rpx;
-      margin-bottom: 30rpx;
+      gap: 16rpx;
+      margin-bottom: 20rpx;
 
       .filter-option {
-        padding: 16rpx 32rpx;
+        padding: 12rpx 24rpx;
         background-color: #f5f5f5;
-        border-radius: 32rpx;
-        font-size: 28rpx;
+        border-radius: 8rpx;
+        font-size: 26rpx;
         color: #666;
 
         &.active {
@@ -394,19 +493,17 @@ const handleCardClick = (elderlyName: string) => {
     }
 
     .filter-actions {
-      border-top: 1rpx solid #e7e6e6;
-      padding-top: 30rpx;
       display: flex;
       gap: 20rpx;
 
       .btn-clear,
       .btn-confirm {
         flex: 1;
-        height: 80rpx;
+        height: 72rpx;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 40rpx;
+        border-radius: 8rpx;
         font-size: 28rpx;
       }
 
@@ -423,11 +520,11 @@ const handleCardClick = (elderlyName: string) => {
   }
 }
 
-// 搜索和标签区域
+// 搜索框
 .search-section {
   padding: 20rpx 30rpx;
   background-color: #fff;
-  margin-bottom: 20rpx;
+  border-bottom: 1rpx solid #eee;
 
   .search-box {
     display: flex;
@@ -435,7 +532,6 @@ const handleCardClick = (elderlyName: string) => {
     background-color: #f5f5f5;
     border-radius: 40rpx;
     padding: 16rpx 24rpx;
-    margin-bottom: 10rpx;
 
     .search-icon {
       font-size: 28rpx;
@@ -458,5 +554,21 @@ const handleCardClick = (elderlyName: string) => {
 // 老人列表
 .elderly-list {
   padding: 0 20rpx;
+}
+
+// 加载状态
+.loading-state {
+  text-align: center;
+  padding: 40rpx 0;
+  color: #999;
+  font-size: 28rpx;
+}
+
+// 空状态
+.empty-state {
+  text-align: center;
+  padding: 100rpx 0;
+  color: #999;
+  font-size: 28rpx;
 }
 </style>

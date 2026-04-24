@@ -1,21 +1,40 @@
 // 个人信息页面
 <script setup lang="ts">
 import { ref } from "vue";
+import {
+  getUserProfileService,
+  updateUserProfileService,
+  uploadAvatarService,
+} from "@/api/user.js";
+import { onShow } from "@dcloudio/uni-app";
+
+// 页面显示时
+onShow(() => {
+  fetchUserProfile(); // 获取用户信息
+});
 
 // 用户信息
 const userInfo = ref({
   avatar: "",
-  name: "护理员A",
-  employeeNo: "NO.0001",
-  phone: "13812340000",
-  gender: "女",
+  name: "",
+  loginDate: "",
+  phone: "",
+  gender: "",
   email: "",
-  organization: "南宁市第一养老院",
+  organization: "",
+});
+
+// 原始用户信息（用于比较是否有修改）
+const originalUserInfo = ref({
+  nickname: "",
+  mobile: "",
+  sex: 0,
+  email: "",
 });
 
 // 证书信息
 const certificateInfo = ref({
-  status: "已认证",
+  status: "未认证",
   certificateImage: "",
 });
 
@@ -26,15 +45,71 @@ const popupPlaceholder = ref("");
 const popupValue = ref("");
 const currentEditField = ref<"name" | "phone" | "email">("name");
 
+// 获取用户资料
+const fetchUserProfile = async () => {
+  try {
+    const res = await getUserProfileService();
+    if (res) {
+      userInfo.value = {
+        avatar: res.avatar || "",
+        name: res.nickname || "",
+        loginDate: res.loginDate
+          ? new Date(res.loginDate)
+              .toLocaleString("zh-CN", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+              .replace(/\//g, "-")
+          : "",
+        phone: res.mobile || "",
+        gender: res.sex === 1 ? "男" : res.sex === 2 ? "女" : "",
+        email: res.email || "",
+        organization: res.dept?.name || "",
+      };
+      // 保存原始数据
+      originalUserInfo.value = {
+        nickname: res.nickname || "",
+        mobile: res.mobile || "",
+        sex: res.sex || 0,
+        email: res.email || "",
+      };
+    }
+  } catch (error) {
+    console.error("获取用户资料失败:", error);
+  }
+};
+
+// 选择的头像临时路径（用于保存时上传）
+const selectedAvatarPath = ref("");
+
 // 选择头像
 const handleSelectAvatar = () => {
   uni.chooseImage({
     count: 1,
     sourceType: ["album", "camera"],
     success: (res) => {
-      userInfo.value.avatar = res.tempFilePaths[0];
+      const tempFilePath = res.tempFilePaths[0];
+      // 先显示本地图片，保存时再上传
+      userInfo.value.avatar = tempFilePath;
+      selectedAvatarPath.value = tempFilePath;
     },
   });
+};
+
+// 上传头像
+const uploadAvatar = async (filePath: string) => {
+  try {
+    await uploadAvatarService(filePath);
+    // 上传成功，清空临时路径
+    selectedAvatarPath.value = "";
+    return true;
+  } catch (error) {
+    console.error("上传头像失败:", error);
+    throw error;
+  }
 };
 
 // 选择性别
@@ -100,18 +175,76 @@ const handleUploadCertificate = () => {
 };
 
 // 保存修改
-const handleSave = () => {
+const handleSave = async () => {
+  // 构建更新数据
+  const updateData: any = {};
+
+  if (userInfo.value.name !== originalUserInfo.value.nickname) {
+    updateData.nickname = userInfo.value.name;
+  }
+  if (userInfo.value.phone !== originalUserInfo.value.mobile) {
+    updateData.mobile = userInfo.value.phone;
+  }
+  if (userInfo.value.email !== originalUserInfo.value.email) {
+    updateData.email = userInfo.value.email;
+  }
+
+  const sexValue =
+    userInfo.value.gender === "男" ? 1 : userInfo.value.gender === "女" ? 2 : 0;
+  if (sexValue !== originalUserInfo.value.sex) {
+    updateData.sex = sexValue;
+  }
+
+  // 检查是否有修改
+  const hasProfileChange = Object.keys(updateData).length > 0;
+  const hasAvatarChange = selectedAvatarPath.value !== "";
+
+  if (!hasProfileChange && !hasAvatarChange) {
+    uni.showToast({
+      title: "暂无修改",
+      icon: "none",
+    });
+    return;
+  }
+
   uni.showLoading({
     title: "保存中...",
   });
 
-  setTimeout(() => {
+  try {
+    // 如果有头像修改，先上传头像
+    if (hasAvatarChange) {
+      await uploadAvatar(selectedAvatarPath.value);
+    }
+
+    // 如果有资料修改，更新资料
+    if (hasProfileChange) {
+      await updateUserProfileService(updateData);
+    }
+
     uni.hideLoading();
     uni.showToast({
       title: "保存成功",
       icon: "success",
     });
-  }, 1500);
+
+    // 更新原始数据
+    if (hasProfileChange) {
+      originalUserInfo.value = {
+        ...originalUserInfo.value,
+        ...updateData,
+      };
+    }
+
+    // 重新获取用户信息获取最新头像
+    await fetchUserProfile();
+  } catch (error) {
+    uni.hideLoading();
+    uni.showToast({
+      title: "保存失败",
+      icon: "none",
+    });
+  }
 };
 </script>
 
@@ -175,15 +308,15 @@ const handleSave = () => {
         </view>
       </view>
 
-      <!-- 工号 -->
+      <!-- 登录日期 -->
       <view class="info-item">
-        <text class="info-label">工号</text>
-        <text class="info-text basic-info">{{ userInfo.employeeNo }}</text>
+        <text class="info-label">登录日期</text>
+        <text class="info-text basic-info">{{ userInfo.loginDate }}</text>
       </view>
 
-      <!-- 所属机构 -->
+      <!-- 所属部门 -->
       <view class="info-item">
-        <text class="info-label">所属机构</text>
+        <text class="info-label">所属部门</text>
         <text class="info-text basic-info">{{ userInfo.organization }}</text>
       </view>
     </view>

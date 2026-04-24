@@ -6,16 +6,18 @@
         <view class="user-info">
           <view class="avatar">
             <image
-              src="/static/avatar.png"
+              :src="userProfile.avatar || '/static/avatar.png'"
               mode="aspectFill"
               class="avatar-img"
             ></image>
           </view>
           <view class="user-detail">
-            <view class="user-name">护理员A</view>
-            <view class="user-id">工号：OP-2026-001</view>
+            <view class="user-name">{{
+              userProfile.nickname || "某护理人员"
+            }}</view>
+            <view class="user-id">{{ userProfile.roleName || "--" }}</view>
           </view>
-          <view class="auth-badge">已认证</view>
+          <view class="auth-badge">未认证</view>
         </view>
       </view>
     </view>
@@ -107,14 +109,40 @@
 </template>
 
 <script setup>
+import { ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { pageGuard } from "@/utils/routerGuard.js";
 import { logoutService } from "@/api/login.js";
+import { getUserProfileService } from "@/api/user.js";
 
-// 页面显示时进行登录检查
+// 页面显示时进行
 onShow(() => {
-  pageGuard();
+  pageGuard(); // 检查登录状态
+  fetchUserProfile(); // 获取用户资料
 });
+
+// 用户信息
+const userProfile = ref({
+  nickname: "",
+  avatar: "",
+  roleName: "",
+});
+
+// 获取用户资料
+const fetchUserProfile = async () => {
+  try {
+    const res = await getUserProfileService();
+    if (res) {
+      userProfile.value = {
+        nickname: res.nickname || "",
+        avatar: res.avatar || "",
+        roleName: res.roles && res.roles.length > 0 ? res.roles[0].name : "",
+      };
+    }
+  } catch (error) {
+    console.error("获取用户资料失败:", error);
+  }
+};
 
 const navigateTo = (url) => {
   uni.navigateTo({

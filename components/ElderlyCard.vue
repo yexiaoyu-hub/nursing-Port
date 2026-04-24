@@ -9,8 +9,7 @@ interface ElderlyItem {
   status: string;
   statusColor: string;
   disability: string;
-  careLevel: string;
-  bedStatus?: string;
+  photo?: string;
 }
 
 const props = defineProps<{
@@ -40,15 +39,23 @@ const handleCardClick = () => {
 
     <!-- 卡片头部：头像、信息 -->
     <view class="card-header" @click="handleCardClick">
-      <view class="avatar"></view>
+      <view class="avatar">
+        <image
+          v-if="item.photo"
+          :src="item.photo"
+          class="avatar-img"
+          mode="aspectFill"
+        />
+      </view>
       <view class="info-section">
         <view class="name-row">
           <text class="name">{{ item.name }}</text>
         </view>
         <view class="detail-row">
-          <text class="detail-text"
-            >{{ item.gender }} · {{ item.age }}岁 · 床位 {{ item.bedNo }}</text
-          >
+          <text class="detail-text">
+            {{ item.gender }} · {{ item.age }}岁 ·
+            {{ item.status === "机构护理" ? "床位" : "地址" }} {{ item.bedNo }}
+          </text>
         </view>
         <view class="tag-row">
           <view class="tag disability-tag">失能：{{ item.disability }}</view>
@@ -62,6 +69,7 @@ const handleCardClick = () => {
     <!-- 操作按钮 -->
     <view class="button-row">
       <view
+        v-if="item.status !== '机构护理'"
         class="action-btn default"
         @click="handleButtonClick('一键拨号', item.name)"
       >
@@ -69,6 +77,7 @@ const handleCardClick = () => {
       </view>
       <view
         class="action-btn primary"
+        :class="{ 'full-width': item.status === '机构护理' }"
         @click="handleButtonClick('服务计划', item.name)"
       >
         服务计划
@@ -110,6 +119,12 @@ const handleCardClick = () => {
       color: #fa8c16;
       border: 1rpx solid #fa8c16;
     }
+
+    &.blue {
+      background-color: #e6f4ff;
+      color: #1677ff;
+      border: 1rpx solid #1677ff;
+    }
   }
 
   .card-header {
@@ -123,6 +138,12 @@ const handleCardClick = () => {
       border-radius: 20rpx;
       margin-right: 24rpx;
       flex-shrink: 0;
+      overflow: hidden;
+
+      .avatar-img {
+        width: 100%;
+        height: 100%;
+      }
     }
 
     .info-section {
@@ -199,6 +220,10 @@ const handleCardClick = () => {
       &.primary {
         background: #1677ff;
         color: #fff;
+
+        &.full-width {
+          flex: 1;
+        }
       }
     }
   }

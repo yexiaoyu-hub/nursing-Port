@@ -1,30 +1,85 @@
 // 待服务订单组件
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted, watch } from "vue";
+import { getPendingServiceOrderStatistics } from "@/api/dataBoard/dataBoard.js";
+
+// 定义 props 接收日期范围
+const props = defineProps<{
+  dateRange?: {
+    beginDate: string;
+    endDate: string;
+  };
+}>();
+
+// 加载状态
+const loading = ref(false);
 
 // 服务类型筛选
 const serviceType = ref("all");
 const serviceTypeOptions = [
   { value: "all", label: "全部" },
-  { value: "turning", label: "翻身护理" },
-  { value: "feeding", label: "喂食照料" },
-  { value: "bathing", label: "洗澡" },
-  { value: "basic", label: "基础护理" },
+  { value: "1", label: "翻身护理" },
+  { value: "2", label: "喂食照料" },
+  { value: "3", label: "洗澡" },
+  { value: "4", label: "基础护理" },
 ];
 
 // 核心看板数据
 const dashboardData = ref({
-  pendingOrders: 6,
-  totalDuration: 200,
+  pendingOrders: 0,
+  totalDuration: 0,
 });
 
 // 服务类型分布数据
-const serviceTypeDistribution = ref([
-  { name: "翻身护理", count: 2, percentage: 33 },
-  { name: "喂食照料", count: 2, percentage: 33 },
-  { name: "洗澡", count: 1, percentage: 17 },
-  { name: "基础护理", count: 1, percentage: 17 },
-]);
+const serviceTypeDistribution = ref<
+  Array<{ name: string; count: number; percentage: number }>
+>([]);
+
+// 获取待服务订单统计数据
+const fetchStatistics = async () => {
+  loading.value = true;
+  try {
+    const params: Record<string, any> = {};
+
+    // 添加日期范围参数
+    if (props.dateRange?.beginDate) {
+      params.beginDate = props.dateRange.beginDate;
+    }
+    if (props.dateRange?.endDate) {
+      params.endDate = props.dateRange.endDate;
+    }
+
+    // 如果选择了具体服务类型，传递 serviceCateId
+    if (serviceType.value !== "all") {
+      params.serviceCateId = parseInt(serviceType.value);
+    }
+
+    const res = await getPendingServiceOrderStatistics(params);
+
+    // 更新核心看板数据
+    dashboardData.value = {
+      pendingOrders: res.pendingOrderCount || 0,
+      totalDuration: res.expectedTotalServiceMinutes || 0,
+    };
+
+    // 更新服务类型分布数据
+    if (res.serviceTypeDistribution && res.serviceTypeDistribution.length > 0) {
+      serviceTypeDistribution.value = res.serviceTypeDistribution.map(
+        (item: any) => ({
+          name: item.serviceTypeName,
+          count: item.orderCount,
+          percentage: Math.round((item.ratio || 0) * 100),
+        })
+      );
+    } else {
+      serviceTypeDistribution.value = [];
+    }
+  } catch (error) {
+    console.error("获取待服务订单统计失败:", error);
+  } finally {
+    loading.value = false;
+  }
+};
 
 // 选择服务类型
 const selectServiceType = () => {
@@ -36,6 +91,25 @@ const selectServiceType = () => {
     },
   });
 };
+
+// 监听服务类型变化，重新获取数据
+watch(serviceType, () => {
+  fetchStatistics();
+});
+
+// 监听日期范围变化，重新获取数据
+watch(
+  () => props.dateRange,
+  () => {
+    fetchStatistics();
+  },
+  { deep: true }
+);
+
+// 页面加载时获取数据
+onMounted(() => {
+  fetchStatistics();
+});
 </script>
 
 <template>
@@ -65,7 +139,9 @@ const selectServiceType = () => {
       <view class="dashboard-cards">
         <view class="dashboard-card">
           <text class="card-label">待服务订单数</text>
-          <text class="card-value">{{ dashboardData.pendingOrders }}</text>
+          <view class="card-value-row">
+            <text class="card-value">{{ dashboardData.pendingOrders }}</text>
+          </view>
         </view>
         <view class="dashboard-card">
           <text class="card-label">预计总时长</text>
@@ -83,9 +159,11 @@ const selectServiceType = () => {
       <view class="chart-card">
         <view class="chart-header">
           <text class="chart-title">按服务类型分布</text>
-          <text class="chart-total">Top 4</text>
+          <text class="chart-total"
+            >Top {{ serviceTypeDistribution.length }}</text
+          >
         </view>
-        <view class="chart-list">
+        <view class="chart-list" v-if="serviceTypeDistribution.length > 0">
           <view
             v-for="(item, index) in serviceTypeDistribution"
             :key="index"
@@ -107,6 +185,9 @@ const selectServiceType = () => {
               <text class="item-percentage">· {{ item.percentage }}%</text>
             </view>
           </view>
+        </view>
+        <view class="empty-chart" v-else>
+          <text class="empty-text">暂无数据</text>
         </view>
       </view>
     </view>
@@ -315,6 +396,18 @@ const selectServiceType = () => {
               margin-left: 8rpx;
             }
           }
+        }
+      }
+
+      .empty-chart {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 60rpx 0;
+
+        .empty-text {
+          font-size: 28rpx;
+          color: #999;
         }
       }
     }
