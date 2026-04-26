@@ -99,12 +99,52 @@ const requestInterceptor = (config) => {
     return config
 }
 
+// 处理 401 统一逻辑
+const handleUnauthorized = (config) => {
+    if (!isRefreshing) {
+        isRefreshing = true
+        return refreshToken().then((newToken) => {
+            refreshQueue.forEach(cb => cb(newToken))
+            refreshQueue = []
+            isRefreshing = false
+            return request({
+                ...config,
+                header: {
+                    ...config.header,
+                    'Authorization': `Bearer ${newToken}`
+                }
+            })
+        }).catch(() => {
+            isRefreshing = false
+            refreshQueue = []
+            goToLogin()
+            return Promise.reject(new Error('登录过期'))
+        })
+    } else {
+        return new Promise((resolve) => {
+            refreshQueue.push((newToken) => {
+                resolve(request({
+                    ...config,
+                    header: {
+                        ...config.header,
+                        'Authorization': `Bearer ${newToken}`
+                    }
+                }))
+            })
+        })
+    }
+}
+
 // 响应拦截器（统一处理返回结果、错误）
 const responseInterceptor = (response, config) => {
     const { statusCode, data } = response
 
     // 请求成功
     if (statusCode === 200) {
+        // 处理业务状态码 401（登录过期）
+        if (data.code === 401) {
+            return handleUnauthorized(config)
+        }
         // 处理成功响应
         if (data.code === 200 || data.code === 0 || data.code === undefined) {
             // 返回业务数据 (data.data)
@@ -117,43 +157,7 @@ const responseInterceptor = (response, config) => {
 
     // 处理 HTTP 错误状态码
     if (statusCode === 401) {
-        // 尝试刷新令牌
-        if (!isRefreshing) {
-            isRefreshing = true
-            return refreshToken().then((newToken) => {
-                // 刷新成功，重试队列中的请求
-                refreshQueue.forEach(cb => cb(newToken))
-                refreshQueue = []
-                isRefreshing = false
-                // 重试当前请求
-                return request({
-                    ...config,
-                    header: {
-                        ...config.header,
-                        'Authorization': `Bearer ${newToken}`
-                    }
-                })
-            }).catch(() => {
-                // 刷新失败，跳转到登录页
-                isRefreshing = false
-                refreshQueue = []
-                goToLogin()
-                return Promise.reject(new Error('登录过期'))
-            })
-        } else {
-            // 正在刷新中，将请求加入队列等待
-            return new Promise((resolve) => {
-                refreshQueue.push((newToken) => {
-                    resolve(request({
-                        ...config,
-                        header: {
-                            ...config.header,
-                            'Authorization': `Bearer ${newToken}`
-                        }
-                    }))
-                })
-            })
-        }
+        return handleUnauthorized(config)
     }
 
     uni.showToast({ title: data.msg || data.message || `请求失败: ${statusCode}`, icon: 'none' })

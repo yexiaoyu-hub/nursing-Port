@@ -32,12 +32,6 @@ const originalUserInfo = ref({
   email: "",
 });
 
-// 证书信息
-const certificateInfo = ref({
-  status: "未认证",
-  certificateImage: "",
-});
-
 // 弹窗相关
 const showPopup = ref(false);
 const popupTitle = ref("");
@@ -51,8 +45,8 @@ const fetchUserProfile = async () => {
     const res = await getUserProfileService();
     if (res) {
       userInfo.value = {
-        avatar: res.avatar || "",
-        name: res.nickname || "",
+        avatar: res.avatar || res.user?.avatar || "",
+        name: res.nickname || res.user?.nickname || "",
         loginDate: res.loginDate
           ? new Date(res.loginDate)
               .toLocaleString("zh-CN", {
@@ -102,8 +96,12 @@ const handleSelectAvatar = () => {
 // 上传头像
 const uploadAvatar = async (filePath: string) => {
   try {
-    await uploadAvatarService(filePath);
-    // 上传成功，清空临时路径
+    const res = await uploadAvatarService(filePath);
+    // 上传成功，更新头像显示
+    if (res.data) {
+      userInfo.value.avatar = res.data;
+    }
+    // 清空临时路径
     selectedAvatarPath.value = "";
     return true;
   } catch (error) {
@@ -161,17 +159,6 @@ const handleConfirmEdit = () => {
 // 取消编辑
 const handleCancelEdit = () => {
   showPopup.value = false;
-};
-
-// 上传证书照片
-const handleUploadCertificate = () => {
-  uni.chooseImage({
-    count: 1,
-    sourceType: ["album", "camera"],
-    success: (res) => {
-      certificateInfo.value.certificateImage = res.tempFilePaths[0];
-    },
-  });
 };
 
 // 保存修改
@@ -321,26 +308,6 @@ const handleSave = async () => {
       </view>
     </view>
 
-    <!-- 资质信息 -->
-    <view class="qualification-section">
-      <text class="section-title">资质信息</text>
-      <view class="qualification-card">
-        <view class="qualification-header">
-          <text class="qualification-title">证书验证</text>
-          <text class="qualification-status">{{ certificateInfo.status }}</text>
-        </view>
-        <view class="certificate-upload" @click="handleUploadCertificate">
-          <image
-            v-if="certificateInfo.certificateImage"
-            :src="certificateInfo.certificateImage"
-            class="certificate-img"
-            mode="aspectFit"
-          />
-          <text v-else class="upload-text">证件照片预览区域</text>
-        </view>
-      </view>
-    </view>
-
     <!-- 保存按钮 -->
     <view class="save-section">
       <view class="btn-save" @click="handleSave">保存修改</view>
@@ -447,69 +414,6 @@ const handleSave = async () => {
         }
 
         &.placeholder {
-          color: #999;
-        }
-      }
-    }
-  }
-
-  // 资质信息区域
-  .qualification-section {
-    margin: 20rpx;
-
-    .section-title {
-      font-size: 24rpx;
-      color: #999;
-      margin-bottom: 16rpx;
-      display: block;
-    }
-
-    .qualification-card {
-      background-color: #fff;
-      border-radius: 16rpx;
-      padding: 24rpx;
-      border: 1rpx solid #e5e5e5;
-      box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.05);
-
-      .qualification-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 20rpx;
-
-        .qualification-title {
-          font-size: 28rpx;
-          color: #333;
-          font-weight: 500;
-        }
-
-        .qualification-status {
-          font-size: 24rpx;
-          color: #52c41a;
-          background-color: #f6ffed;
-          padding: 4rpx 16rpx;
-          border-radius: 20rpx;
-          border: 1rpx solid #b7eb8f;
-        }
-      }
-
-      .certificate-upload {
-        height: 200rpx;
-        background-color: #f8f8f8;
-        border-radius: 12rpx;
-        border: 2rpx dashed #ddd;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        .certificate-img {
-          width: 100%;
-          height: 100%;
-          border-radius: 12rpx;
-        }
-
-        .upload-text {
-          font-size: 26rpx;
           color: #999;
         }
       }

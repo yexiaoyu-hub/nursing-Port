@@ -3,6 +3,11 @@
 import { ref, onMounted, watch } from "vue";
 import { getPendingServiceOrderStatistics } from "@/api/dataBoard/dataBoard.js";
 
+// 页面加载时
+onMounted(() => {
+  fetchStatistics(); // 初始化时获取数据
+});
+
 // 定义 props 接收日期范围
 const props = defineProps<{
   dateRange?: {
@@ -13,16 +18,6 @@ const props = defineProps<{
 
 // 加载状态
 const loading = ref(false);
-
-// 服务类型筛选
-const serviceType = ref("all");
-const serviceTypeOptions = [
-  { value: "all", label: "全部" },
-  { value: "1", label: "翻身护理" },
-  { value: "2", label: "喂食照料" },
-  { value: "3", label: "洗澡" },
-  { value: "4", label: "基础护理" },
-];
 
 // 核心看板数据
 const dashboardData = ref({
@@ -47,11 +42,6 @@ const fetchStatistics = async () => {
     }
     if (props.dateRange?.endDate) {
       params.endDate = props.dateRange.endDate;
-    }
-
-    // 如果选择了具体服务类型，传递 serviceCateId
-    if (serviceType.value !== "all") {
-      params.serviceCateId = parseInt(serviceType.value);
     }
 
     const res = await getPendingServiceOrderStatistics(params);
@@ -81,22 +71,6 @@ const fetchStatistics = async () => {
   }
 };
 
-// 选择服务类型
-const selectServiceType = () => {
-  const itemList = serviceTypeOptions.map((item) => item.label);
-  uni.showActionSheet({
-    itemList,
-    success: (res) => {
-      serviceType.value = serviceTypeOptions[res.tapIndex].value;
-    },
-  });
-};
-
-// 监听服务类型变化，重新获取数据
-watch(serviceType, () => {
-  fetchStatistics();
-});
-
 // 监听日期范围变化，重新获取数据
 watch(
   () => props.dateRange,
@@ -105,34 +79,10 @@ watch(
   },
   { deep: true }
 );
-
-// 页面加载时获取数据
-onMounted(() => {
-  fetchStatistics();
-});
 </script>
 
 <template>
   <view class="pending-orders">
-    <!-- 服务类型筛选 -->
-    <view class="filter-section">
-      <view class="filter-row">
-        <text class="filter-label">筛选条件</text>
-      </view>
-      <view class="filter-options">
-        <view class="filter-select" @click="selectServiceType">
-          <text class="select-label">服务类型</text>
-          <view class="select-value">
-            <text>{{
-              serviceTypeOptions.find((item) => item.value === serviceType)
-                ?.label
-            }}</text>
-            <text class="arrow-icon">▼</text>
-          </view>
-        </view>
-      </view>
-    </view>
-
     <!-- 核心看板 -->
     <view class="dashboard-section">
       <text class="section-title">核心看板</text>
@@ -158,7 +108,7 @@ onMounted(() => {
       <text class="section-title">分布图表</text>
       <view class="chart-card">
         <view class="chart-header">
-          <text class="chart-title">按服务类型分布</text>
+          <text class="chart-title">按项目分布</text>
           <text class="chart-total"
             >Top {{ serviceTypeDistribution.length }}</text
           >

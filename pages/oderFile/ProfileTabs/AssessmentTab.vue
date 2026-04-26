@@ -1,17 +1,18 @@
 // 评估标签页组件
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 
-// 失能评估信息
+// 失能评估信息（最新数据）
 const assessmentInfo = ref({
   time: "2026-01-10 09:30",
+  updateTime: "2026-01-10 10:00",
   organization: "正一养老评估中心",
   evaluator: "王评估师",
   conclusion: "失能：中度",
 });
 
-// 评估历史记录
-const historyRecords = ref([
+// 评估报告记录
+const assessmentRecords = ref([
   {
     id: 1,
     date: "2026-01-10",
@@ -35,6 +36,13 @@ const historyRecords = ref([
   },
 ]);
 
+// 按评估时间排序（最新的在前）
+const sortedRecords = computed(() => {
+  return [...assessmentRecords.value].sort((a, b) => {
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
+});
+
 // 评估提醒
 const reminderEnabled = ref(false);
 const nextAssessmentDate = ref("2026-07-10");
@@ -44,20 +52,16 @@ const toggleReminder = () => {
   reminderEnabled.value = !reminderEnabled.value;
 };
 
-// 查看评估报告
-const viewReport = () => {
+// 查看评估报告详情
+const viewReportDetail = (item: any) => {
   uni.showToast({
-    title: "查看评估报告",
+    title: `查看评估报告: ${item.title}`,
     icon: "none",
   });
-};
-
-// 查看评估历史记录
-const viewHistory = () => {
-  uni.showToast({
-    title: "查看评估历史记录",
-    icon: "none",
-  });
+  // TODO: 跳转到评估报告详情页
+  // uni.navigateTo({
+  //   url: `/pages/assessment/detail?id=${item.id}`,
+  // });
 };
 
 // 获取等级标签样式
@@ -77,9 +81,12 @@ const getLevelClass = (level: string) => {
 
 <template>
   <view class="assessment-tab">
-    <!-- 失能评估信息 -->
+    <!-- 失能评估信息（最新数据） -->
     <view class="section">
-      <view class="section-title">失能评估信息</view>
+      <view class="section-header">
+        <view class="section-title">失能评估信息</view>
+        <view class="update-time">更新时间：{{ assessmentInfo.updateTime }}</view>
+      </view>
       <view class="info-list">
         <view class="info-item">
           <text class="label">评估时间</text>
@@ -100,36 +107,32 @@ const getLevelClass = (level: string) => {
       </view>
     </view>
 
-    <!-- 评估报告查看 -->
-    <view class="section">
-      <view class="section-title">评估报告查看</view>
-      <view class="button-row">
-        <view class="btn default" @click="viewReport">查看评估报告</view>
-        <view class="btn primary" @click="viewHistory">评估历史记录</view>
-      </view>
-    </view>
-
-    <!-- 评估历史记录时间轴 -->
+    <!-- 评估报告记录 -->
     <view class="section timeline-section">
-      <view class="section-title">评估历史记录</view>
+      <view class="section-title">评估报告记录</view>
       <view class="timeline">
         <view
           class="timeline-item"
-          v-for="(item, index) in historyRecords"
+          v-for="(item, index) in sortedRecords"
           :key="item.id"
         >
           <view class="timeline-line">
             <view class="timeline-dot"></view>
             <view
               class="timeline-connector"
-              v-if="index < historyRecords.length - 1"
+              v-if="index < sortedRecords.length - 1"
             ></view>
           </view>
           <view class="timeline-content">
             <text class="timeline-date">{{ item.date }}</text>
             <view class="timeline-card">
               <view class="card-header">
-                <text class="card-title">{{ item.title }}</text>
+                <view class="card-title-row">
+                  <text class="card-title">{{ item.title }}</text>
+                  <view class="btn-view-small" @click="viewReportDetail(item)"
+                    >查看</view
+                  >
+                </view>
                 <text class="card-level" :class="getLevelClass(item.level)">
                   {{ item.level }}
                 </text>
@@ -175,6 +178,24 @@ const getLevelClass = (level: string) => {
     padding: 20rpx;
     margin-bottom: 20rpx;
     border: 1rpx solid #0f172a14;
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20rpx;
+
+      .section-title {
+        font-size: 26rpx;
+        color: #999;
+        margin-bottom: 0;
+      }
+
+      .update-time {
+        font-size: 24rpx;
+        color: #999;
+      }
+    }
 
     .section-title {
       font-size: 26rpx;
@@ -293,16 +314,31 @@ const getLevelClass = (level: string) => {
             align-items: center;
             margin-bottom: 8rpx;
 
-            .card-title {
-              font-size: 30rpx;
-              font-weight: 600;
-              color: #333;
+            .card-title-row {
+              display: flex;
+              align-items: center;
+              gap: 16rpx;
+
+              .card-title {
+                font-size: 30rpx;
+                font-weight: 600;
+                color: #333;
+              }
+
+              .btn-view-small {
+                padding: 4rpx 16rpx;
+                background-color: #1677ff;
+                color: #fff;
+                font-size: 22rpx;
+                border-radius: 6rpx;
+              }
             }
 
             .card-level {
               font-size: 24rpx;
               padding: 4rpx 12rpx;
               border-radius: 8rpx;
+              flex-shrink: 0;
 
               &.level-light {
                 background-color: #d0f9d9;

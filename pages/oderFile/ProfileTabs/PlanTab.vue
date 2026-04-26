@@ -1,64 +1,166 @@
 // 计划标签页组件
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
+import {
+  getServicePlanByAged,
+  getServicePlanChangeLog,
+} from "@/api/older/older.js";
 
-// 日常护理计划
-const dailyPlans = ref([
-  {
-    id: 1,
-    category: "生活照料",
-    name: "晨间清洁",
-    frequency: "1次/日",
-    duration: "20分钟",
-    note: "皮肤观察",
-  },
-  {
-    id: 2,
-    category: "医疗护理",
-    name: "血压测量",
-    frequency: "2次/日",
-    duration: "10分钟",
-    note: "早晚各一次",
-  },
-  {
-    id: 3,
-    category: "康复训练",
-    name: "关节活动",
-    frequency: "1次/日",
-    duration: "30分钟",
-    note: "耐受调整",
-  },
-]);
-
-// 今日完成进度
-const todayProgress = ref({
-  completed: 5,
-  total: 6,
+// 页面加载时
+onMounted(async () => {
+  await fetchServicePlan(); // 获取服务计划
+  await fetchPlanChangeLog(); // 获取变更日志（需要在服务计划之后）
 });
 
+// Props 接收老人ID
+const props = defineProps<{
+  agedId: string;
+}>();
+
+// 服务计划数据（按类型分组）
+const servicePlanData = ref<any[]>([]);
+const loading = ref(false);
+
+// 获取服务计划数据
+const fetchServicePlan = async () => {
+  if (!props.agedId) return;
+  loading.value = true;
+  try {
+    const res = await getServicePlanByAged(props.agedId);
+    // 处理接口返回数据结构
+    const data = res?.data || res || [];
+    servicePlanData.value = Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error("获取服务计划失败:", error);
+    uni.showToast({
+      title: "获取服务计划失败",
+      icon: "none",
+    });
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 计算所有服务项目列表（用于展示）
+const allServiceProjects = computed(() => {
+  const projects: any[] = [];
+  servicePlanData.value.forEach((group: any) => {
+    if (group.projects && Array.isArray(group.projects)) {
+      group.projects.forEach((project: any, index: number) => {
+        projects.push({
+          ...project,
+          cateName: group.cateName,
+          // 使用 projectId 作为关联键
+          projectId: project.projectId,
+        });
+      });
+    }
+  });
+  return projects;
+});
+
+// 计算已完成进度
+const completedProgress = computed(() => {
+  const total = allServiceProjects.value.length;
+  const completed = allServiceProjects.value.filter(
+    (item) => (item.completedCount || 0) > 0
+  ).length;
+  return {
+    completed,
+    total: total || 1, // 避免除以0
+  };
+});
 const progressPercent = computed(() => {
   return Math.round(
-    (todayProgress.value.completed / todayProgress.value.total) * 100
+    (completedProgress.value.completed / completedProgress.value.total) * 100
   );
 });
 
-// 计划调整
-const planAdjustments = ref([
-  {
-    id: 1,
-    date: "2026-01-19",
-    title: "调整监测频次",
-    content: "血压监测由每日1次调整为每日2次。",
-    type: "计划变更",
-  },
-  {
-    id: 2,
-    date: "2025-12-28",
-    title: "调整训练时长",
-    content: "关节活动训练由20分钟调整为30分钟。",
-    type: "计划删除",
-  },
-]);
+// 计划调整（变更日志）
+const planAdjustments = ref<any[]>([]);
+
+// 获取计划变更日志
+const fetchPlanChangeLog = async () => {
+  if (!props.agedId) return;
+  try {
+    const res = await getServicePlanChangeLog({
+      size: 100,
+    });
+    // 处理接口返回数据结构
+    const data = res?.data || res || {};
+    const list = data.list || data || [];
+
+    // 过滤当前老人的变更数据
+    // 先获取当前老人的所有 projectId
+    const currentProjectIds = new Set(
+      allServiceProjects.value.map((p: any) => p.projectId).filter(Boolean)
+    );
+
+    // 过滤并格式化变更日志
+    const filteredList = list.filter((item: any) => {
+      return currentProjectIds.has(item.projectId);
+    });
+
+    planAdjustments.value = filteredList.map((item: any) => ({
+      id: item.id,
+      date: formatDate(item.biangengTime || item.createTime),
+      title: `调整：${item.projectName || "项目"}`,
+      content: generateChangeContent(item),
+    }));
+  } catch (error) {
+    console.error("获取计划变更日志失败:", error);
+  }
+};
+
+// 格式化日期
+const formatDate = (timestamp: number | string) => {
+  if (!timestamp) return "";
+  const date = new Date(Number(timestamp));
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(date.getDate()).padStart(2, "0")}`;
+};
+
+// 生成变更内容描述
+const generateChangeContent = (item: any) => {
+  const {
+    projectName,
+    projectPinlvOld,
+    projectPinlvNumOld,
+    projectPinlvNew,
+    projectPinlvNumNew,
+  } = item;
+  const name = projectName || "该项目";
+
+  // 频次变更
+  if (
+    projectPinlvOld !== projectPinlvNew ||
+    projectPinlvNumOld !== projectPinlvNumNew
+  ) {
+    const oldFreq = `${projectPinlvNumOld || 1}次/${getPinlvUnit(
+      projectPinlvOld
+    )}`;
+    const newFreq = `${projectPinlvNumNew || 1}次/${getPinlvUnit(
+      projectPinlvNew
+    )}`;
+    return `频次由”${oldFreq}“调整为“${newFreq}”。`;
+  }
+
+  return `${name}发生变更。`;
+};
+
+// 获取频次单位
+const getPinlvUnit = (pinlv: string) => {
+  const unitMap: Record<string, string> = {
+    每天: "天",
+    每周: "周",
+    每月: "月",
+    每年: "年",
+    不定期: "不定期",
+  };
+  return unitMap[pinlv] || "其他";
+};
 
 // 计划执行记录（无顺延状态，统一展示完成，去掉最后一个）
 const executionRecords = ref([
@@ -100,34 +202,51 @@ const getAdjustmentTypeClass = (type: string) => {
 
 <template>
   <view class="plan-tab">
-    <!-- 日常护理计划 -->
+    <!-- 服务计划 -->
     <view class="section">
-      <view class="section-title">日常护理计划</view>
-      <view class="plan-list">
-        <view class="plan-card" v-for="item in dailyPlans" :key="item.id">
+      <view class="section-title">服务计划</view>
+      <view class="plan-list" v-if="allServiceProjects.length > 0">
+        <view
+          class="plan-card"
+          v-for="item in allServiceProjects"
+          :key="item.projectId"
+        >
           <view class="plan-header">
             <view class="plan-title-row">
-              <text class="plan-category">{{ item.category }}：</text>
-              <text class="plan-name">{{ item.name }}</text>
+              <text class="plan-name">{{ item.projectName }}</text>
             </view>
-            <text class="plan-tag">{{ item.category }}</text>
+            <text class="plan-tag">{{ item.cateName }}</text>
           </view>
           <view class="plan-detail">
             <text class="detail-text">
-              频次 {{ item.frequency }} · 时长 {{ item.duration }} · 注意事项
-              {{ item.note }}
+              频次: {{ item.projectPinlvNum }}次/{{
+                item.projectPinlv === "每天"
+                  ? "天"
+                  : item.projectPinlv === "每周"
+                  ? "周"
+                  : item.projectPinlv === "每月"
+                  ? "月"
+                  : item.projectPinlv === "不定期"
+                  ? "不定期"
+                  : "其他"
+              }}
+              · 时长 {{ item.projectTime }}分钟 · 注意事项
+              {{ item.projectInfo || "-" }}
             </text>
           </view>
         </view>
       </view>
+      <view class="empty-state" v-else-if="!loading">
+        <text>暂无服务计划</text>
+      </view>
     </view>
 
-    <!-- 今日完成 -->
+    <!-- 已完成 -->
     <view class="section">
       <view class="progress-header">
-        <text class="section-title">今日完成</text>
+        <text class="section-title">已完成</text>
         <text class="progress-text">
-          {{ todayProgress.completed }}/{{ todayProgress.total }} ({{
+          {{ completedProgress.completed }}/{{ completedProgress.total }} ({{
             progressPercent
           }}%)
         </text>
@@ -239,12 +358,6 @@ const getAdjustmentTypeClass = (type: string) => {
         .plan-title-row {
           display: flex;
           align-items: center;
-
-          .plan-category {
-            font-size: 30rpx;
-            font-weight: 600;
-            color: #333;
-          }
 
           .plan-name {
             font-size: 30rpx;

@@ -17,7 +17,6 @@
             }}</view>
             <view class="user-id">{{ userProfile.roleName || "--" }}</view>
           </view>
-          <view class="auth-badge">未认证</view>
         </view>
       </view>
     </view>
@@ -235,15 +234,6 @@ const logout = async () => {
       color: rgba(255, 255, 255, 0.8);
       font-size: 26rpx;
     }
-  }
-
-  .auth-badge {
-    background-color: rgba(255, 255, 255, 0.25);
-    color: #fff;
-    font-size: 24rpx;
-    padding: 8rpx 24rpx;
-    border-radius: 30rpx;
-    border: 1rpx solid rgba(255, 255, 255, 0.4);
   }
 }
 

@@ -34,10 +34,6 @@ watch(
   () => props.show,
   (newVal) => {
     if (newVal) {
-      // 弹窗打开时，初始化临时日期值
-      tempBeginDate.value = props.beginDate || "";
-      tempEndDate.value = props.endDate || "";
-
       // 设置选择器默认值
       if (props.beginDate) {
         const [year, month, day] = props.beginDate.split("-").map(Number);
@@ -46,14 +42,22 @@ watch(
           months.indexOf(month),
           days.indexOf(day),
         ];
+        tempBeginDate.value = props.beginDate;
       } else {
         // 默认选中今天
         const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const day = now.getDate();
         beginDateValue.value = [
-          years.indexOf(now.getFullYear()),
-          months.indexOf(now.getMonth() + 1),
-          days.indexOf(now.getDate()),
+          years.indexOf(year),
+          months.indexOf(month),
+          days.indexOf(day),
         ];
+        tempBeginDate.value = `${year}-${String(month).padStart(
+          2,
+          "0"
+        )}-${String(day).padStart(2, "0")}`;
       }
 
       if (props.endDate) {
@@ -63,14 +67,21 @@ watch(
           months.indexOf(month),
           days.indexOf(day),
         ];
+        tempEndDate.value = props.endDate;
       } else {
         // 默认选中今天
         const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const day = now.getDate();
         endDateValue.value = [
-          years.indexOf(now.getFullYear()),
-          months.indexOf(now.getMonth() + 1),
-          days.indexOf(now.getDate()),
+          years.indexOf(year),
+          months.indexOf(month),
+          days.indexOf(day),
         ];
+        tempEndDate.value = `${year}-${String(month).padStart(2, "0")}-${String(
+          day
+        ).padStart(2, "0")}`;
       }
     }
   },

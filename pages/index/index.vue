@@ -5,6 +5,7 @@ import ServiceCard from "@/components/ServiceCard.vue";
 import { pageGuard } from "@/utils/routerGuard.js";
 import { getServiceOrderService } from "@/api/index.js";
 import { getDictDataSimpleList } from "@/api/dict/dict.js";
+import { getUserProfileService } from "@/api/user.js";
 
 // 字典数据缓存
 const dictDataMap = ref({});
@@ -12,7 +13,7 @@ const dictDataMap = ref({});
 // 页面显示时进行
 onShow(async () => {
   pageGuard(); // 登录路由检查
-  getUserInfo(); // 获取用户信息
+  await getUserInfo(); // 获取用户信息
   await fetchDictData(); // 获取字典数据
   await fetchServiceOrderData(); // 获取服务工单数据
 });
@@ -54,31 +55,25 @@ const kanbanData = ref([]);
 const userInfo = ref({
   nickname: "",
   avatar: "",
-  tenantName: "",
+  deptName: "",
+  roleName: "",
 });
 
 // 获取用户信息
-const getUserInfo = () => {
-  const storedUserInfo = uni.getStorageSync("userInfo");
-  const storedAccount = uni.getStorageSync("rememberedAccount");
-
-  let nickname = "";
-  let avatar = "";
-  let tenantName = "";
-
-  if (storedUserInfo && storedUserInfo.user) {
-    nickname = storedUserInfo.user.nickname || "";
-    avatar = storedUserInfo.user.avatar || "";
+const getUserInfo = async () => {
+  try {
+    const res = await getUserProfileService();
+    if (res) {
+      userInfo.value = {
+        nickname: res.nickname || "",
+        avatar: res.avatar || "",
+        deptName: res.dept?.name || "",
+        roleName: res.roles?.[0]?.name || "",
+      };
+    }
+  } catch (error) {
+    console.error("获取用户信息失败:", error);
   }
-  if (storedAccount && storedAccount.tenant) {
-    tenantName = storedAccount.tenant;
-  }
-
-  userInfo.value = {
-    nickname,
-    avatar,
-    tenantName,
-  };
 };
 
 // 订单列表数据
@@ -176,9 +171,10 @@ const getDisabilityLevelText = (level) => {
       </view>
       <view class="headername">
         <text class="text">{{ userInfo.nickname || "某护理人员" }}</text>
-        <text class="mintext">{{
-          userInfo.tenantName ? userInfo.tenantName + "•护理人员" : "护理人员"
-        }}</text>
+        <text class="mintext"
+          >{{ userInfo.deptName
+          }}{{ userInfo.roleName ? " · " + userInfo.roleName : "" }}</text
+        >
       </view>
     </view>
     <view class="kanban">

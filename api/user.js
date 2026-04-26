@@ -20,19 +20,25 @@ export const uploadAvatarService = (filePath) => {
             url: `${baseURL}/system/user/profile/update-avatar`,
             filePath: filePath,
             name: 'avatarFile',
+
             header: {
                 'Authorization': `Bearer ${uni.getStorageSync('token')}`,
                 'tenant-id': uni.getStorageSync('tenantId'),
             },
             success: (res) => {
-                const data = JSON.parse(res.data)
-                if (data.code === 0) {
-                    resolve(data)
-                } else {
-                    reject(new Error(data.msg || '上传失败'))
+                try {
+                    const data = JSON.parse(res.data)
+                    if (data.code === 0 || data.code === 200) {
+                        resolve(data)
+                    } else {
+                        reject(new Error(data.msg || '上传失败'))
+                    }
+                } catch (e) {
+                    reject(new Error('解析响应失败'))
                 }
             },
             fail: (error) => {
+                console.error('上传头像失败:', error)
                 reject(error)
             }
         })

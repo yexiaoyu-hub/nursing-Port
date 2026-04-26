@@ -18,7 +18,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "button-click", buttonText: string, elderlyName: string): void;
-  (e: "card-click", elderlyName: string): void;
+  (e: "card-click", elderlyId: number): void;
 }>();
 
 const handleButtonClick = (buttonText: string, elderlyName: string) => {
@@ -26,7 +26,7 @@ const handleButtonClick = (buttonText: string, elderlyName: string) => {
 };
 
 const handleCardClick = () => {
-  emit("card-click", props.item.name);
+  emit("card-click", props.item.id);
 };
 </script>
 

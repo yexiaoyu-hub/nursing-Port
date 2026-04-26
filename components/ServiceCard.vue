@@ -28,6 +28,20 @@ const props = defineProps({
 // 是否为机构护理
 const isInstitutionCare = computed(() => props.label === "机构护理");
 
+// 计算标签颜色类名
+const labelClass = computed(() => {
+  switch (props.label) {
+    case "机构护理":
+      return "label-green";
+    case "居家护理":
+      return "label-blue";
+    case "社区护理":
+      return "label-orange";
+    default:
+      return "label-green";
+  }
+});
+
 // 计算服务进度百分比（只显示整数）
 const progressPercent = computed(() => {
   if (!props.orderSerTimes || props.orderSerTimes <= 0) return 0;
@@ -56,7 +70,9 @@ const progressPercent = computed(() => {
             <slot name="address"></slot>
           </text>
         </view>
-        <view class="labelheader"><slot name="label"></slot></view>
+        <view class="labelheader" :class="labelClass"
+          ><slot name="label"></slot
+        ></view>
       </view>
       <view class="labelone">失能：<slot name="disability"></slot></view>
       <view
@@ -159,15 +175,30 @@ const progressPercent = computed(() => {
       }
       .labelheader {
         padding: 4rpx 16rpx;
-        background-color: #d0f9d9;
         border-radius: 20rpx;
-        color: #52c41a;
-        border: 1rpx solid #52c41a;
         font-size: 22rpx;
         display: flex;
         align-items: center;
         justify-content: center;
         margin-bottom: 60rpx;
+
+        &.label-green {
+          background-color: #d0f9d9;
+          color: #52c41a;
+          border: 1rpx solid #52c41a;
+        }
+
+        &.label-blue {
+          background-color: #e6f4ff;
+          color: #1677ff;
+          border: 1rpx solid #1677ff;
+        }
+
+        &.label-orange {
+          background-color: #fff2e8;
+          color: #fa8c16;
+          border: 1rpx solid #fa8c16;
+        }
       }
     }
     .labelone {

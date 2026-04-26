@@ -1,18 +1,36 @@
 // 概览标签页组件
 <script setup lang="ts">
+import { computed } from "vue";
+
 interface ElderlyInfo {
-  id: string;
+  agedId: string;
   name: string;
   gender: string;
   age: number;
   disabilityLevel: string;
   bedNo: string;
-  healthStatus: string;
+  changhuStatus?: number;
+  nursingMode?: string;
 }
 
 const props = defineProps<{
   info: ElderlyInfo;
 }>();
+
+// 是否为机构护理
+const isInstitutionCare = computed(() => props.info.nursingMode === "机构护理");
+
+// 参保状态文本
+const insuranceStatus = computed(() => {
+  switch (props.info.changhuStatus) {
+    case 1:
+      return "在保";
+    case 2:
+      return "减员";
+    default:
+      return "-";
+  }
+});
 
 const emit = defineEmits<{
   (e: "dial", phone: string): void;
@@ -45,8 +63,8 @@ const handleQuickSign = () => {
       <view class="section-title">基础信息</view>
       <view class="info-list">
         <view class="info-item">
-          <text class="label">编号</text>
-          <text class="value">{{ info.id }}</text>
+          <text class="label">老人ID</text>
+          <text class="value">{{ info.agedId }}</text>
         </view>
         <view class="info-item">
           <text class="label">姓名</text>
@@ -65,28 +83,29 @@ const handleQuickSign = () => {
           <text class="value">{{ info.disabilityLevel }}</text>
         </view>
         <view class="info-item">
-          <text class="label">床位号</text>
+          <text class="label">{{ isInstitutionCare ? "床位" : "地址" }}</text>
           <text class="value">{{ info.bedNo }}</text>
         </view>
         <view class="info-item">
-          <text class="label">健康状况</text>
-          <view class="tag green">{{ info.healthStatus }}</view>
+          <text class="label">参保状态</text>
+          <view class="tag green">{{ insuranceStatus }}</view>
         </view>
       </view>
     </view>
 
     <!-- 操作按钮 -->
     <view class="action-buttons">
-      <view class="btn primary" @click="handleDial">一键拨号</view>
-      <view class="btn default" @click="handleHistory">历史记录</view>
+      <view v-if="!isInstitutionCare" class="btn primary" @click="handleDial"
+        >一键拨号</view
+      >
+      <view class="btn default" @click="handleHistory">历史服务记录</view>
     </view>
 
-    <!-- 今日服务入口 -->
+    <!-- 服务入口 -->
     <view class="section">
-      <view class="section-title">今日服务入口</view>
+      <view class="section-title">服务入口</view>
       <view class="service-buttons">
         <view class="btn primary" @click="handleTodayTask">查看今日任务</view>
-        <view class="btn default" @click="handleQuickSign">快捷签到</view>
       </view>
     </view>
   </view>

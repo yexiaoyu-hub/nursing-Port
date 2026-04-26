@@ -1,46 +1,87 @@
 // 健康标签页组件
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch, onMounted, computed } from "vue";
+import { getAgedHealth } from "@/api/older/older.js";
 
-// 基本信息
-const basicInfo = ref({
-  birthDate: "1948-05-01",
-  idCard: "450100194805010011",
-  phone: "13800000001",
-  emergencyContact: "王梅（配偶）13800000011",
-  medicalHistory: "高血压（10年）",
-  allergy: "无",
+interface BasicInfo {
+  birthDate: string;
+  idCard: string;
+  phone: string;
+  emergencyContact: string;
+}
+
+const props = defineProps<{
+  elderlyId: number | null;
+  basicInfo: BasicInfo;
+}>();
+
+// 格式化健康数据（将JSON数组或字符串转换为可读格式）
+const formatHealthValue = (value: any): string => {
+  if (!value || value === "null" || value === "undefined") {
+    return "无";
+  }
+  // 如果是数组，用顿号分隔
+  if (Array.isArray(value)) {
+    return value.join("、") || "无";
+  }
+  // 如果是字符串，尝试解析JSON数组
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.join("、") || "无";
+      }
+      return value || "无";
+    } catch (e) {
+      return value || "无";
+    }
+  }
+  return String(value) || "无";
+};
+
+// 健康数据
+const healthData = ref({
+  // 健康指标
+  shuzhangya: null,
+  shousuoya: null,
+  xuetang: null,
+  xinlv: null,
+  tiwen: null,
+  // 基本信息中的健康字段
+  yichuan: "",
+  guomin: "",
+  huanbing: "",
 });
 
-// 健康指标
+// 健康指标（从接口数据动态生成）
 const healthIndicators = ref([
   {
     id: 1,
     name: "血压",
-    value: "118/76",
+    value: "--/--",
     unit: "mmHg",
-    trend: [80, 85, 75, 90, 82, 78, 76],
+    trend: [],
   },
   {
     id: 2,
     name: "血糖",
-    value: "6",
+    value: "--",
     unit: "mmol/L",
-    trend: [5.5, 6.2, 5.8, 6.5, 6.0, 5.9, 6.0],
+    trend: [],
   },
   {
     id: 3,
     name: "心率",
-    value: "73",
+    value: "--",
     unit: "次/分",
-    trend: [70, 75, 72, 78, 74, 71, 73],
+    trend: [],
   },
   {
     id: 4,
     name: "体温",
-    value: "36.5",
+    value: "--",
     unit: "℃",
-    trend: [36.4, 36.6, 36.5, 36.7, 36.5, 36.4, 36.5],
+    trend: [],
   },
 ]);
 
@@ -94,6 +135,52 @@ const nursingAssessments = ref([
   },
 ]);
 
+// 获取健康信息
+const fetchHealthData = async () => {
+  if (!props.elderlyId) return;
+  try {
+    const res = await getAgedHealth(props.elderlyId);
+    const data = res?.data || res;
+    if (data) {
+      healthData.value = {
+        shuzhangya: data.shuzhangya,
+        shousuoya: data.shousuoya,
+        xuetang: data.xuetang,
+        xinlv: data.xinlv,
+        tiwen: data.tiwen,
+        yichuan: data.yichuan,
+        guomin: data.guomin,
+        huanbing: data.huanbing,
+      };
+      // 更新健康指标显示
+      updateHealthIndicators();
+    }
+  } catch (error) {
+    console.error("获取健康信息失败:", error);
+  }
+};
+
+// 更新健康指标
+const updateHealthIndicators = () => {
+  const data = healthData.value;
+  // 血压
+  if (data.shuzhangya && data.shousuoya) {
+    healthIndicators.value[0].value = `${data.shousuoya}/${data.shuzhangya}`;
+  }
+  // 血糖
+  if (data.xuetang !== null && data.xuetang !== undefined) {
+    healthIndicators.value[1].value = String(data.xuetang);
+  }
+  // 心率
+  if (data.xinlv !== null && data.xinlv !== undefined) {
+    healthIndicators.value[2].value = String(data.xinlv);
+  }
+  // 体温
+  if (data.tiwen !== null && data.tiwen !== undefined) {
+    healthIndicators.value[3].value = String(data.tiwen);
+  }
+};
+
 // 查看监测记录
 const viewMonitorRecords = () => {
   uni.showToast({ title: "查看监测记录", icon: "none" });
@@ -125,37 +212,54 @@ const getStatusClass = (type: string) => {
       return "status-normal";
   }
 };
+
+// 监听elderlyId变化，获取健康数据
+watch(
+  () => props.elderlyId,
+  (newId) => {
+    if (newId) {
+      fetchHealthData();
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
   <view class="health-tab">
-    <!-- 基本信息 -->
+    <!-- 基本信息 - 从父组件传入的数据 -->
     <view class="section">
       <view class="section-title">基本信息</view>
       <view class="info-list">
         <view class="info-item">
           <text class="label">出生日期</text>
-          <text class="value">{{ basicInfo.birthDate }}</text>
+          <text class="value">{{ basicInfo.birthDate || "-" }}</text>
         </view>
         <view class="info-item">
           <text class="label">身份证号</text>
-          <text class="value">{{ basicInfo.idCard }}</text>
+          <text class="value">{{ basicInfo.idCard || "-" }}</text>
         </view>
         <view class="info-item">
           <text class="label">联系方式</text>
-          <text class="value">{{ basicInfo.phone }}</text>
+          <text class="value">{{ basicInfo.phone || "-" }}</text>
         </view>
         <view class="info-item">
           <text class="label">紧急联系人</text>
-          <text class="value">{{ basicInfo.emergencyContact }}</text>
+          <text class="value">{{ basicInfo.emergencyContact || "-" }}</text>
         </view>
         <view class="info-item">
-          <text class="label">既往病史</text>
-          <text class="value">{{ basicInfo.medicalHistory }}</text>
+          <text class="label">遗传病史</text>
+          <text class="value">{{ formatHealthValue(healthData.yichuan) }}</text>
         </view>
         <view class="info-item">
-          <text class="label">过敏史</text>
-          <text class="value">{{ basicInfo.allergy }}</text>
+          <text class="label">目前患病</text>
+          <text class="value">{{
+            formatHealthValue(healthData.huanbing)
+          }}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">药物过敏史</text>
+          <text class="value">{{ formatHealthValue(healthData.guomin) }}</text>
         </view>
       </view>
     </view>
@@ -334,6 +438,10 @@ const getStatusClass = (type: string) => {
       .value {
         font-size: 28rpx;
         color: #333;
+        max-width: 60%;
+        text-align: right;
+        word-break: break-all;
+        line-height: 1.4;
       }
     }
   }
@@ -403,44 +511,43 @@ const getStatusClass = (type: string) => {
   }
 
   .button-row {
-    margin-top: 20rpx;
-    margin-bottom: 20rpx;
+    display: flex;
+    justify-content: center;
 
     .btn {
-      width: 100%;
-      height: 80rpx;
+      height: 72rpx;
       display: flex;
       align-items: center;
       justify-content: center;
       border-radius: 20rpx;
       font-size: 28rpx;
-      font-weight: 600;
-      background-color: #fff;
-      color: #333;
-      border: 2rpx solid #eaeaea;
+      padding: 0 40rpx;
+
+      &.default {
+        background-color: #f5f5f5;
+        color: #666;
+        border: 1rpx solid #e0e0e0;
+      }
+
+      &.small {
+        height: 56rpx;
+        padding: 0 24rpx;
+        font-size: 24rpx;
+      }
 
       &.primary {
         background: #1677ff;
         color: #fff;
-        border: none;
-      }
-
-      &.small {
-        flex: 1;
-        height: 64rpx;
-        font-size: 26rpx;
       }
     }
   }
 
   .medication-list {
     .medication-card {
-      background-color: #fff;
-      border: 2rpx solid #eaeaea;
+      background-color: #f8f9fa;
       border-radius: 16rpx;
       padding: 24rpx;
       margin-bottom: 16rpx;
-      box-shadow: 2rpx 5rpx 15rpx rgba(0, 0, 0, 0.06);
 
       &:last-child {
         margin-bottom: 0;
@@ -450,7 +557,7 @@ const getStatusClass = (type: string) => {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 8rpx;
+        margin-bottom: 12rpx;
 
         .medication-name {
           font-size: 30rpx;
@@ -460,24 +567,26 @@ const getStatusClass = (type: string) => {
 
         .medication-status {
           font-size: 24rpx;
-          color: #666;
+          color: #52c41a;
+          background-color: #d0f9d9;
+          padding: 4rpx 16rpx;
+          border-radius: 20rpx;
         }
       }
 
       .medication-dosage {
-        font-size: 24rpx;
-        color: #999;
+        font-size: 26rpx;
+        color: #666;
       }
     }
   }
 
   .report-list {
     .report-card {
-      background-color: #fff;
+      background-color: #f8f9fa;
       border-radius: 16rpx;
       padding: 24rpx;
       margin-bottom: 16rpx;
-      box-shadow: 2rpx 5rpx 15rpx rgba(0, 0, 0, 0.06);
 
       &:last-child {
         margin-bottom: 0;
@@ -487,7 +596,7 @@ const getStatusClass = (type: string) => {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 20rpx;
+        margin-bottom: 16rpx;
 
         .report-name {
           font-size: 30rpx;
@@ -498,127 +607,94 @@ const getStatusClass = (type: string) => {
         .report-date {
           font-size: 24rpx;
           color: #999;
-          padding: 4rpx 12rpx;
-          border: 1rpx solid #0f172a1a;
-          border-radius: 15rpx;
         }
       }
 
       .report-actions {
         display: flex;
-        gap: 20rpx;
-
-        .btn {
-          flex: 1;
-          height: 64rpx;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 12rpx;
-          font-size: 26rpx;
-
-          &.default {
-            background-color: #fff;
-            color: #333;
-            border: 2rpx solid #eaeaea;
-          }
-
-          &.primary {
-            background: #1677ff;
-            color: #fff;
-          }
-        }
+        gap: 16rpx;
       }
     }
   }
 
   .timeline-section {
-    padding-left: 20rpx;
-  }
-
-  .timeline {
-    .timeline-item {
-      display: flex;
-      align-items: flex-start;
-
-      .timeline-line {
-        width: 32rpx;
+    .timeline {
+      .timeline-item {
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        position: relative;
-        flex-shrink: 0;
+        gap: 20rpx;
 
-        .timeline-dot {
-          width: 20rpx;
-          height: 20rpx;
-          background-color: #1677ff;
-          border-radius: 50%;
-          margin-top: 4rpx;
-          flex-shrink: 0;
-        }
+        .timeline-line {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          width: 32rpx;
 
-        .timeline-connector {
-          width: 3rpx;
-          flex: 1;
-          min-height: 120rpx;
-          background-color: #e8e8e8;
-          margin: 8rpx 0;
-        }
-      }
-
-      .timeline-content {
-        flex: 1;
-        padding-bottom: 30rpx;
-        padding-left: 20rpx;
-
-        .timeline-date {
-          font-size: 26rpx;
-          color: #666;
-          margin-bottom: 12rpx;
-          display: block;
-        }
-
-        .timeline-card {
-          background-color: #fff;
-          border: 2rpx solid #eaeaea;
-          border-radius: 16rpx;
-          padding: 24rpx;
-          box-shadow: 2rpx 5rpx 15rpx rgba(0, 0, 0, 0.1);
-
-          .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12rpx;
-
-            .card-title {
-              font-size: 30rpx;
-              font-weight: 600;
-              color: #333;
-            }
-
-            .card-status {
-              font-size: 24rpx;
-              padding: 4rpx 12rpx;
-              border-radius: 8rpx;
-
-              &.status-normal {
-                background-color: #f5f5f5;
-                color: #666;
-              }
-
-              &.status-warning {
-                background-color: #fff2e8;
-                color: #fa8c16;
-              }
-            }
+          .timeline-dot {
+            width: 16rpx;
+            height: 16rpx;
+            background-color: #1677ff;
+            border-radius: 50%;
+            flex-shrink: 0;
           }
 
-          .card-content {
-            font-size: 26rpx;
-            color: #666;
-            line-height: 1.5;
+          .timeline-connector {
+            width: 2rpx;
+            flex: 1;
+            background-color: #e0e0e0;
+            margin: 8rpx 0;
+          }
+        }
+
+        .timeline-content {
+          flex: 1;
+          padding-bottom: 30rpx;
+
+          .timeline-date {
+            font-size: 24rpx;
+            color: #999;
+            margin-bottom: 12rpx;
+            display: block;
+          }
+
+          .timeline-card {
+            background-color: #f8f9fa;
+            border-radius: 16rpx;
+            padding: 24rpx;
+
+            .card-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 12rpx;
+
+              .card-title {
+                font-size: 30rpx;
+                font-weight: 600;
+                color: #333;
+              }
+
+              .card-status {
+                font-size: 24rpx;
+                padding: 4rpx 16rpx;
+                border-radius: 20rpx;
+
+                &.status-normal {
+                  color: #52c41a;
+                  background-color: #d0f9d9;
+                }
+
+                &.status-warning {
+                  color: #fa8c16;
+                  background-color: #fff2e8;
+                }
+              }
+            }
+
+            .card-content {
+              font-size: 26rpx;
+              color: #666;
+              line-height: 1.6;
+            }
           }
         }
       }

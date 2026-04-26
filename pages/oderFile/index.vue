@@ -1,10 +1,12 @@
 // 老人档案页面
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
+import { onLoad } from "@dcloudio/uni-app";
 import OverviewTab from "@/pages/oderFile/ProfileTabs/OverviewTab.vue";
 import AssessmentTab from "@/pages/oderFile/ProfileTabs/AssessmentTab.vue";
 import HealthTab from "@/pages/oderFile/ProfileTabs/HealthTab.vue";
 import PlanTab from "@/pages/oderFile/ProfileTabs/PlanTab.vue";
+import { getAgedDetail } from "@/api/older/older.js";
 
 // 当前激活的标签页
 const activeTab = ref(0);
@@ -22,51 +24,117 @@ const switchTab = (index: number) => {
   activeTab.value = index;
 };
 
+// 老人ID
+const elderlyId = ref<number | null>(null);
+
 // 老人基础信息
 const elderlyInfo = ref({
-  id: "GXZY-3F-301-01-0001",
-  name: "张三",
-  gender: "男",
-  age: 77,
-  disabilityLevel: "中度",
-  bedNo: "3F-301-01",
-  bedStatus: "在床",
-  healthStatus: "稳定",
+  agedId: "",
+  name: "",
+  gender: "",
+  age: 0,
+  disabilityLevel: "",
+  bedNo: "",
+  changhuStatus: 0,
+  nursingMode: "",
+  photo: "",
+  // 健康页需要的额外字段
+  birthDate: "",
+  idCard: "",
+  phone: "",
+  emergencyContact: "",
 });
+
+// 加载状态
+const loading = ref(false);
+
+// 获取老人详情
+const fetchElderlyDetail = async (id: number) => {
+  loading.value = true;
+  try {
+    const res = await getAgedDetail(id);
+    const data = res?.data || res;
+    if (data && data.agedId) {
+      // 映射接口数据到页面数据
+      elderlyInfo.value = {
+        agedId: data.agedId?.toString() || "",
+        name: data.agedName || "",
+        gender: data.sex === "1" ? "男" : data.sex === "2" ? "女" : "",
+        age: data.age || 0,
+        disabilityLevel: getDisabilityText(data.shinengLevelid),
+        bedNo: data.juzhuAddress || "-",
+        changhuStatus: data.changhuStatus || 0,
+        nursingMode:
+          data.huiliType === "1"
+            ? "居家护理"
+            : data.huiliType === "2"
+            ? "机构护理"
+            : data.huiliType === "3"
+            ? "社区护理"
+            : "",
+        photo: data.photo || "",
+        // 健康页字段
+        birthDate: data.birthday || "",
+        idCard: data.idno || "",
+        phone: data.tel || "",
+        emergencyContact: data.changhuDaili
+          ? `${data.changhuDaili}（${data.changhuGuanxi || "亲属"}）${
+              data.changhuTel || ""
+            }`
+          : "",
+      };
+    }
+  } catch (error) {
+    console.error("获取老人详情失败:", error);
+    uni.showToast({
+      title: "获取数据失败",
+      icon: "none",
+    });
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 从本地存储获取字典数据
+const getDictData = () => {
+  const dictData = uni.getStorageSync("dictData");
+  return dictData || {};
+};
+
+// 根据失能等级获取显示文本
+const getDisabilityText = (level: string | number) => {
+  const dictData = getDictData();
+  return dictData["changhu_sndj"]?.[String(level)] || level || "-";
+};
 
 // 处理一键拨号
 const handleDial = (phone: string) => {
   uni.makePhoneCall({
-    phoneNumber: phone || "10086",
+    phoneNumber: phone || elderlyInfo.value.phone || "10086",
   });
 };
 
 // 处理历史记录
 const handleHistory = () => {
   uni.navigateTo({
-    url: "/pages/servicePlan/historicalRecord?id=" + elderlyInfo.value.id,
+    url: "/pages/servicePlan/historicalRecord?id=" + elderlyInfo.value.agedId,
   });
 };
 
 // 处理查看今日任务
 const handleTodayTask = () => {
   uni.switchTab({
-    url: "/pages/task/taskDetails?id=" + elderlyInfo.value.id,
+    url: "/pages/index/index",
   });
 };
 
-// 处理快捷签到
-const handleQuickSign = () => {
-  uni.showToast({
-    title: "签到成功",
-    icon: "success",
-  });
-};
-
-// 返回上一页
-const goBack = () => {
-  uni.navigateBack();
-};
+// 页面加载
+onLoad((options) => {
+  if (options?.id) {
+    elderlyId.value = Number(options.id);
+    fetchElderlyDetail(elderlyId.value);
+  }
+});
 </script>
 
 <template>
@@ -74,14 +142,20 @@ const goBack = () => {
     <!-- 顶部老人卡片 -->
     <view class="header-card">
       <view class="avatar-section">
-        <view class="avatar"></view>
+        <image
+          v-if="elderlyInfo.photo"
+          :src="elderlyInfo.photo"
+          class="avatar"
+          mode="aspectFill"
+        />
+        <view v-else class="avatar"></view>
       </view>
       <view class="info-section">
-        <text class="name">{{ elderlyInfo.name }}</text>
-        <text class="detail">
-          床位 {{ elderlyInfo.bedNo }} · 失能
-          {{ elderlyInfo.disabilityLevel }}
-        </text>
+        <text class="name">{{ elderlyInfo.name || "--" }}</text>
+        <text class="detail">{{ elderlyInfo.disabilityLevel }} </text>
+      </view>
+      <view class="nursing-mode-tag">
+        <text class="tag-text">{{ elderlyInfo.nursingMode }}</text>
       </view>
     </view>
 
@@ -110,11 +184,14 @@ const goBack = () => {
         @dial="handleDial"
         @history="handleHistory"
         @todayTask="handleTodayTask"
-        @quickSign="handleQuickSign"
       />
-      <AssessmentTab v-if="activeTab === 1" />
-      <HealthTab v-if="activeTab === 2" />
-      <PlanTab v-if="activeTab === 3" />
+      <AssessmentTab v-if="activeTab === 1" :elderlyId="elderlyId" />
+      <HealthTab
+        v-if="activeTab === 2"
+        :elderlyId="elderlyId"
+        :basicInfo="elderlyInfo"
+      />
+      <PlanTab v-if="activeTab === 3" :agedId="elderlyInfo.agedId" />
     </scroll-view>
   </view>
 </template>
@@ -160,8 +237,21 @@ const goBack = () => {
       }
 
       .detail {
-        font-size: 26rpx;
+        font-size: 24rpx;
         color: rgba(255, 255, 255, 0.9);
+      }
+    }
+
+    .nursing-mode-tag {
+      padding: 8rpx 20rpx;
+      background-color: rgba(255, 255, 255, 0.2);
+      border-radius: 24rpx;
+      border: 1rpx solid rgba(255, 255, 255, 0.3);
+
+      .tag-text {
+        font-size: 24rpx;
+        color: #fff;
+        font-weight: 500;
       }
     }
   }

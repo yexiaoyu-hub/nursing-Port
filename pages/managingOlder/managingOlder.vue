@@ -147,18 +147,28 @@ const fetchElderlyList = async (isLoadMore = false) => {
     // 处理接口返回的数据结构
     const records = res?.list || [];
 
-    // 处理数据，添加 statusColor，并映射字段
-    const processedRecords = records.map((item: any) => ({
-      id: item.id,
-      name: item.agedName,
-      gender: item.sex === "1" ? "男" : "女",
-      age: item.age,
-      bedNo: item.juzhuAddress || "-",
-      status: item.nursingMode || "机构护理",
-      statusColor: getStatusColor(item.nursingMode),
-      disability: getDisabilityText(item.shinengLevelid),
-      photo: item.photo,
-    }));
+    // 处理数据
+    const processedRecords = records.map((item: any) => {
+      const status =
+        item.huiliType === "1"
+          ? "居家护理"
+          : item.huiliType === "2"
+          ? "机构护理"
+          : item.huiliType === "3"
+          ? "社区护理"
+          : "";
+      return {
+        id: item.agedId,
+        name: item.agedName,
+        gender: item.sex === "1" ? "男" : "女",
+        age: item.age,
+        bedNo: item.juzhuAddress || "-",
+        status: status,
+        statusColor: getStatusColor(status),
+        disability: getDisabilityText(item.shinengLevelid),
+        photo: item.photo,
+      };
+    });
 
     if (isLoadMore) {
       allElderlyList.value.push(...processedRecords);
@@ -184,32 +194,27 @@ const getStatusColor = (status: string) => {
     case "机构护理":
       return "green";
     case "居家护理":
-      return "orange";
-    case "社区护理":
       return "blue";
+    case "社区护理":
+      return "orange";
     default:
       return "green";
   }
 };
 
+// 从本地存储获取字典数据
+const getDictData = () => {
+  const dictData = uni.getStorageSync("dictData");
+  return dictData?.data || dictData || {};
+};
 // 根据失能等级获取显示文本
-const getDisabilityText = (level: string) => {
-  switch (level) {
-    case "0":
-      return "基本正常";
-    case "1":
-      return "轻度失能";
-    case "2":
-      return "中度失能";
-    case "3":
-      return "重度失能Ⅰ级";
-    case "4":
-      return "重度失能Ⅱ级";
-    case "5":
-      return "重度失能Ⅲ级";
-    default:
-      return level || "-";
-  }
+const getDisabilityText = (level: string | number) => {
+  if (!level && level !== 0) return "-";
+  const dictData = getDictData();
+  const dict = dictData["changhu_sndj"];
+  // 尝试字符串和数字两种key
+  const text = dict?.[String(level)] || dict?.[Number(level)];
+  return text || String(level);
 };
 
 // 加载更多
@@ -280,9 +285,9 @@ const handleButtonClick = (buttonText: string, elderlyName: string) => {
 };
 
 // 处理卡片点击 - 跳转到老人档案页
-const handleCardClick = (elderlyName: string) => {
+const handleCardClick = (elderlyId: number) => {
   uni.navigateTo({
-    url: "/pages/oderFile/index?name=" + elderlyName,
+    url: "/pages/oderFile/index?id=" + elderlyId,
   });
 };
 
