@@ -271,14 +271,14 @@ const clearFilter = () => {
 };
 
 // 处理按钮点击
-const handleButtonClick = (buttonText: string, elderlyName: string) => {
+const handleButtonClick = (buttonText: string, agedId: number) => {
   if (buttonText === "服务计划") {
     uni.navigateTo({
-      url: "/pages/servicePlan/servicePlan?id=" + elderlyName,
+      url: "/pages/servicePlan/servicePlan?agedId=" + agedId,
     });
   } else {
     uni.showToast({
-      title: `${buttonText}: ${elderlyName}`,
+      title: `${buttonText}`,
       icon: "none",
     });
   }

@@ -1,18 +1,35 @@
 // 服务开始标签页组件
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import AbnormalAction from "@/components/AbnormalAction.vue";
 
 const emit = defineEmits<{
   (e: "next-step"): void;
 }>();
 
+// Props
+const props = defineProps<{
+  orderId?: string;
+  agedId?: string;
+  agedName?: string;
+}>();
+
+// 页面参数
+const orderId = ref("");
+const elderlyInfo = ref({
+  id: "",
+  name: "",
+});
+const nurseInfo = ref({
+  name: "",
+});
+
 // 打卡状态
 const checkInStatus = ref<"idle" | "loading" | "success">("idle");
-const locationInfo = ref("");
 
 // 身份验证方式
 const authType = ref<"face" | "password">("face");
+const authStatus = ref<"idle" | "success">("idle");
 
 // 照片列表
 const photos = ref<string[]>([]);
@@ -22,6 +39,7 @@ const isRecording = ref(false);
 const recordingTime = ref(0);
 const hasRecorded = ref(false);
 const audioDuration = ref("00:04");
+const audioFilePath = ref("");
 
 // 服务信息
 const serviceInfo = {
@@ -32,6 +50,36 @@ const serviceInfo = {
   subsidy: "0.04",
   selfPay: "0.06",
 };
+
+// 页面加载获取参数
+onMounted(() => {
+  // 优先使用 props 传入的参数
+  orderId.value = props.orderId || "";
+  elderlyInfo.value.id = props.agedId || "";
+  elderlyInfo.value.name = props.agedName || "王大锤";
+
+  // 如果 props 没有，尝试从页面参数获取
+  if (!orderId.value) {
+    const pages = getCurrentPages();
+    const currentPage = pages[pages.length - 1];
+    const options = currentPage.options || currentPage.$route?.query || {};
+    orderId.value = options.orderId || "";
+    elderlyInfo.value.id = options.agedId || elderlyInfo.value.id;
+    elderlyInfo.value.name = options.agedName || elderlyInfo.value.name;
+  }
+
+  // 获取当前护理员信息
+  const userInfo = uni.getStorageSync("userInfo");
+  if (userInfo) {
+    nurseInfo.value.name = userInfo.nickname || userInfo.username || "护理员";
+  }
+
+  console.log("serviceStart 参数:", {
+    orderId: orderId.value,
+    agedId: elderlyInfo.value.id,
+    agedName: elderlyInfo.value.name,
+  });
+});
 
 // 格式化录音时间
 const formatTime = (seconds: number) => {
@@ -44,11 +92,10 @@ const formatTime = (seconds: number) => {
 
 // 获取定位并打卡
 const handleCheckIn = () => {
-  checkInStatus.value = "loading";
-  setTimeout(() => {
-    checkInStatus.value = "success";
-    locationInfo.value = "北京市朝阳区XX街道XX号 (GPS定位成功)";
-  }, 1500);
+  // 跳转到打卡页面
+  uni.navigateTo({
+    url: `/pages/serviceExecute/serviceCheckIn?orderId=${orderId.value}&agedId=${elderlyInfo.value.id}&agedName=${elderlyInfo.value.name}&nurseName=${nurseInfo.value.name}`,
+  });
 };
 
 // 切换身份验证方式
@@ -62,13 +109,37 @@ const handleFaceRecognition = () => {
     title: "人脸识别中...",
     icon: "loading",
   });
+  // 模拟人脸识别成功
+  setTimeout(() => {
+    authStatus.value = "success";
+    uni.showToast({
+      title: "人脸识别成功",
+      icon: "success",
+    });
+  }, 1500);
 };
 
 // 密码确认
 const handlePasswordConfirm = () => {
-  uni.showToast({
-    title: "密码确认中...",
-    icon: "loading",
+  uni.showModal({
+    title: "密码确认",
+    content: "请输入服务密码",
+    editable: true,
+    placeholderText: "请输入密码",
+    success: (res) => {
+      if (res.confirm && res.content) {
+        uni.showLoading({ title: "验证中..." });
+        // 模拟密码验证
+        setTimeout(() => {
+          uni.hideLoading();
+          authStatus.value = "success";
+          uni.showToast({
+            title: "验证成功",
+            icon: "success",
+          });
+        }, 1000);
+      }
+    },
   });
 };
 
@@ -101,25 +172,159 @@ const playVoice = () => {
 // 开始/停止录音
 const toggleRecording = () => {
   if (isRecording.value) {
+    // 停止录音
+    uni.stopRecord();
     isRecording.value = false;
     hasRecorded.value = true;
   } else {
+    // 开始录音
     isRecording.value = true;
     recordingTime.value = 0;
-    // 模拟录音计时
+
+    // 开始录音
+    uni.startRecord({
+      success: (res) => {
+        audioFilePath.value = res.tempFilePath;
+      },
+      fail: (err) => {
+        console.error("录音失败:", err);
+        uni.showToast({
+          title: "录音失败",
+          icon: "none",
+        });
+        isRecording.value = false;
+      },
+    });
+
+    // 录音计时
     const timer = setInterval(() => {
       if (!isRecording.value) {
         clearInterval(timer);
         return;
       }
       recordingTime.value++;
+      // 最多录音60秒
+      if (recordingTime.value >= 60) {
+        uni.stopRecord();
+        isRecording.value = false;
+        hasRecorded.value = true;
+        clearInterval(timer);
+      }
     }, 1000);
   }
 };
 
 // 完成并进入服务中
-const handleComplete = () => {
-  emit("next-step");
+const handleComplete = async () => {
+  // 校验必填项
+  if (checkInStatus.value !== "success") {
+    uni.showToast({
+      title: "请先完成到达打卡",
+      icon: "none",
+    });
+    return;
+  }
+
+  if (authStatus.value !== "success") {
+    uni.showToast({
+      title: "请先完成身份验证",
+      icon: "none",
+    });
+    return;
+  }
+
+  if (photos.value.length === 0) {
+    uni.showToast({
+      title: "请至少拍摄一张照片",
+      icon: "none",
+    });
+    return;
+  }
+
+  if (!hasRecorded.value) {
+    uni.showToast({
+      title: "请先完成录音",
+      icon: "none",
+    });
+    return;
+  }
+
+  try {
+    uni.showLoading({ title: "提交中..." });
+
+    // 上传照片
+    const photoUrls = await Promise.all(
+      photos.value.map((photo) => uploadFile(photo))
+    );
+
+    // 上传录音
+    let mp3Url = "";
+    if (audioFilePath.value) {
+      mp3Url = await uploadFile(audioFilePath.value);
+    }
+
+    // 调用签到接口
+    const signData = {
+      orderId: orderId.value,
+      signLong: locationData.value.longitude,
+      signLat: locationData.value.latitude,
+      signAddressName: locationData.value.address,
+      signAddress: locationData.value.address,
+      signPotos: photoUrls.join(","),
+      mp3Url: mp3Url,
+      mp3Time: recordingTime.value,
+    };
+
+    const res = await createServiceSignStart(signData);
+
+    uni.hideLoading();
+
+    if (res.code === 0) {
+      uni.showToast({
+        title: "签到成功",
+        icon: "success",
+      });
+      emit("next-step");
+    } else {
+      uni.showToast({
+        title: res.msg || "签到失败",
+        icon: "none",
+      });
+    }
+  } catch (error) {
+    uni.hideLoading();
+    console.error("签到失败:", error);
+    uni.showToast({
+      title: "签到失败",
+      icon: "none",
+    });
+  }
+};
+
+// 上传文件
+const uploadFile = (filePath: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    uni.uploadFile({
+      url: `${import.meta.env.VITE_APP_BASE_API || ""}/common/upload`,
+      filePath: filePath,
+      name: "file",
+      success: (res) => {
+        try {
+          const data = JSON.parse(res.data);
+          if (data.code === 0 && data.data) {
+            resolve(data.data.url || data.data);
+          } else {
+            reject(new Error(data.msg || "上传失败"));
+          }
+        } catch (e) {
+          reject(new Error("上传失败"));
+        }
+      },
+      fail: (err) => {
+        reject(err);
+      },
+    });
+  });
 };
 
 // 异常上报
@@ -182,8 +387,12 @@ const handleTransferTask = () => {
         </view>
       </view>
       <view class="auth-content">
+        <view v-if="authStatus === 'success'" class="auth-btn success">
+          <text class="success-icon">✓</text>
+          <text>身份验证已通过</text>
+        </view>
         <view
-          v-if="authType === 'face'"
+          v-else-if="authType === 'face'"
           class="auth-btn"
           @click="handleFaceRecognition"
         >
@@ -378,6 +587,17 @@ const handleTransferTask = () => {
         justify-content: center;
         font-size: 28rpx;
         border: 2rpx dashed #1677ff;
+
+        &.success {
+          background-color: #f6ffed;
+          color: #52c41a;
+          border: 2rpx solid #b7eb8f;
+
+          .success-icon {
+            margin-right: 8rpx;
+            font-size: 32rpx;
+          }
+        }
       }
     }
 

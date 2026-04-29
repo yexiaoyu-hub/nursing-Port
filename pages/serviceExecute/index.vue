@@ -1,13 +1,33 @@
 // 服务执行页面
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import ServiceStartTab from "./ExecuteTabs/serviceStart.vue";
 import ServiceSecondTab from "./ExecuteTabs/serviceSecond.vue";
 import ServiceEndTab from "./ExecuteTabs/serviceEnd.vue";
 import ServiceEvaluationTab from "./ExecuteTabs/serviceEvaluation.vue";
 
+// 页面参数
+const orderId = ref("");
+const agedId = ref("");
+const agedName = ref("");
+
 // 当前步骤
 const currentStep = ref(1);
+
+// 页面加载获取参数
+onMounted(() => {
+  const pages = getCurrentPages();
+  const currentPage = pages[pages.length - 1];
+  const options = currentPage.options || currentPage.$route?.query || {};
+  orderId.value = options.orderId || options.id || "";
+  agedId.value = options.agedId || "";
+  agedName.value = options.agedName || "";
+  console.log("服务执行页面参数:", {
+    orderId: orderId.value,
+    agedId: agedId.value,
+    agedName: agedName.value,
+  });
+});
 
 // 下一步
 const nextStep = () => {
@@ -46,7 +66,13 @@ const steps = [
 
     <!-- 内容区域 - 根据当前步骤显示不同标签页 -->
     <view class="content">
-      <ServiceStartTab v-if="currentStep === 1" @next-step="nextStep" />
+      <ServiceStartTab
+        v-if="currentStep === 1"
+        :order-id="orderId"
+        :aged-id="agedId"
+        :aged-name="agedName"
+        @next-step="nextStep"
+      />
       <ServiceSecondTab v-if="currentStep === 2" @next-step="nextStep" />
       <ServiceEndTab v-if="currentStep === 3" @next-step="nextStep" />
       <ServiceEvaluationTab v-if="currentStep === 4" />

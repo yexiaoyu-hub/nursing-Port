@@ -1,95 +1,111 @@
 // 服务计划执行页面
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
+import { getAgedDetail, getServicePlanByAged } from "@/api/older/older.js";
+import { createServiceOrder } from "@/api/service/order.js";
+
+// 页面加载状态
+const loading = ref(false);
 
 // 老人信息
 const elderlyInfo = ref({
-  id: 1,
-  name: "张三",
-  gender: "男",
-  age: 78,
-  bedNo: "3F-301-01",
-  status: "稳定",
+  id: "",
+  name: "",
+  gender: "",
+  age: 0,
+  bedNo: "",
   statusColor: "green",
-  disability: "中度",
+  nursingMode: "",
+  disability: "",
+  avatar: "",
 });
 
 // 服务计划数据
-const servicePlans = ref([
-  {
-    category: "生活照料",
-    items: [
-      {
-        id: 1,
-        name: "失禁照护",
-        completed: 0,
-        total: 2,
-        frequency: "每周",
-        duration: "20分钟",
-        checked: true,
-      },
-      {
-        id: 2,
-        name: "失禁照护",
-        completed: 1,
-        total: 2,
-        frequency: "日",
-        duration: "20分钟",
-        checked: true,
-      },
-      {
-        id: 3,
-        name: "失禁照护",
-        completed: 0,
-        total: 2,
-        frequency: "每周",
-        duration: "20分钟",
-        checked: false,
-      },
-      {
-        id: 4,
-        name: "失禁照护",
-        completed: 1,
-        total: 2,
-        frequency: "日",
-        duration: "20分钟",
-        checked: true,
-      },
-    ],
-  },
-  {
-    category: "医疗护理",
-    items: [
-      {
-        id: 5,
-        name: "失禁照护",
-        completed: 0,
-        total: 1,
-        frequency: "必要时",
-        duration: "20分钟",
-        checked: true,
-      },
-      {
-        id: 6,
-        name: "失禁照护",
-        completed: 1,
-        total: 2,
-        frequency: "日",
-        duration: "20分钟",
-        checked: true,
-      },
-      {
-        id: 7,
-        name: "失禁照护",
-        completed: 0,
-        total: 1,
-        frequency: "必要时",
-        duration: "20分钟",
-        checked: false,
-      },
-    ],
-  },
-]);
+const servicePlans = ref([]);
+
+// 从本地存储获取字典数据
+const getDictData = () => {
+  const dictData = uni.getStorageSync("dictData");
+  return dictData || {};
+};
+// 根据失能等级获取显示文本
+const getDisabilityText = (level: string | number) => {
+  const dictData = getDictData();
+  return dictData["changhu_sndj"]?.[String(level)] || level || "-";
+};
+
+// 获取老人信息
+const fetchElderlyInfo = async (agedId: string) => {
+  try {
+    const res = await getAgedDetail(agedId);
+    // 处理接口返回的数据结构
+    const data = res?.data || res;
+    if (data) {
+      const nursingMode =
+        data.huiliType === "1"
+          ? "居家护理"
+          : data.huiliType === "2"
+          ? "机构护理"
+          : data.huiliType === "3"
+          ? "社区护理"
+          : "";
+      elderlyInfo.value = {
+        id: data.agedId || "",
+        name: data.agedName || "",
+        gender: data.sex === "1" ? "男" : data.sex === "2" ? "女" : "",
+        age: data.age || 0,
+        bedNo: data.juzhuAddress || "-",
+        nursingMode: nursingMode,
+        statusColor:
+          data.huiliType === "2"
+            ? "green"
+            : data.huiliType === "1"
+            ? "blue"
+            : "orange",
+        disability: getDisabilityText(data.shinengLevelid),
+        avatar: data.photo || "",
+      };
+    }
+  } catch (error) {
+    console.error("获取老人信息失败:", error);
+    uni.showToast({
+      title: "获取老人信息失败",
+      icon: "none",
+    });
+  }
+};
+
+// 获取服务计划
+const fetchServicePlan = async (agedId: string) => {
+  try {
+    loading.value = true;
+    const res = await getServicePlanByAged(agedId);
+    // 处理接口返回的数据结构
+    const data = res?.data || res;
+    if (data && Array.isArray(data)) {
+      servicePlans.value = data.map((group: any) => ({
+        category: group.cateName,
+        items: (group.projects || []).map((item: any) => ({
+          id: item.projectId,
+          name: item.projectName || "",
+          completed: item.completedCount || 0,
+          total: item.projectPinlvNum || 1,
+          frequency: item.projectPinlvLabel || item.projectPinlv || "",
+          duration: item.projectTime ? `${item.projectTime}分钟` : "20分钟",
+          checked: true,
+        })),
+      }));
+    }
+  } catch (error) {
+    console.error("获取服务计划失败:", error);
+    uni.showToast({
+      title: "获取服务计划失败",
+      icon: "none",
+    });
+  } finally {
+    loading.value = false;
+  }
+};
 
 // 切换项目选中状态
 const toggleItem = (categoryIndex: number, itemIndex: number) => {
@@ -98,94 +114,154 @@ const toggleItem = (categoryIndex: number, itemIndex: number) => {
 };
 
 // 开始服务
-const startService = () => {
-  uni.navigateTo({
-    url: "/pages/serviceExecute/index?id=" + elderlyInfo.value.id,
-  });
+const startService = async () => {
+  try {
+    uni.showLoading({ title: "创建服务工单..." });
+
+    // 创建服务工单
+    const orderData = {
+      agedId: elderlyInfo.value.id,
+      agedName: elderlyInfo.value.name,
+      // 其他必要字段...
+    };
+
+    const res = await createServiceOrder(orderData);
+    uni.hideLoading();
+
+    if (res.code === 0 && res.data) {
+      const orderId = res.data.id || res.data.orderId;
+      // 跳转到服务执行页面，带上 orderId
+      uni.navigateTo({
+        url: `/pages/serviceExecute/index?orderId=${orderId}&agedId=${elderlyInfo.value.id}&agedName=${elderlyInfo.value.name}`,
+      });
+    } else {
+      uni.showToast({
+        title: res.msg || "创建工单失败",
+        icon: "none",
+      });
+    }
+  } catch (error) {
+    uni.hideLoading();
+    console.error("创建工单失败:", error);
+    uni.showToast({
+      title: "创建工单失败",
+      icon: "none",
+    });
+  }
 };
 
 // 查看历史记录
 const viewHistory = () => {
   uni.navigateTo({
-    url: "/pages/servicePlan/historicalRecord?id=" + elderlyInfo.value.id,
+    url: "/pages/servicePlan/historicalRecord?agedId=" + elderlyInfo.value.id,
   });
 };
 
-// 返回上一页
-const goBack = () => {
-  uni.navigateBack();
-};
+// 页面加载
+onMounted(() => {
+  const pages = getCurrentPages();
+  const currentPage = pages[pages.length - 1];
+  const options = currentPage.options || currentPage.$route?.query || {};
+  const agedId = options.agedId || options.id;
+
+  if (agedId) {
+    fetchElderlyInfo(agedId);
+    fetchServicePlan(agedId);
+  } else {
+    uni.showToast({
+      title: "缺少老人ID参数",
+      icon: "none",
+    });
+  }
+});
 </script>
 
 <template>
   <view class="plan-execute-page">
-    <!-- 老人卡片 -->
-    <view class="elderly-card">
-      <!-- 状态标签 -->
-      <view class="status-tag top-right" :class="elderlyInfo.statusColor">
-        {{ elderlyInfo.status }}
-      </view>
+    <!-- 加载状态 -->
+    <view v-if="loading" class="loading-container">
+      <view class="loading-spinner"></view>
+      <text class="loading-text">加载中...</text>
+    </view>
 
-      <!-- 卡片头部：头像、信息 -->
-      <view class="card-header">
-        <view class="avatar"></view>
-        <view class="info-section">
-          <view class="name-row">
-            <text class="name">{{ elderlyInfo.name }}</text>
-          </view>
-          <view class="detail-row">
-            <text class="detail-text"
-              >{{ elderlyInfo.gender }} · {{ elderlyInfo.age }}岁 · 床位
-              {{ elderlyInfo.bedNo }}</text
-            >
-          </view>
-          <view class="tag-row">
-            <view class="tag disability-tag"
-              >失能：{{ elderlyInfo.disability }}</view
-            >
+    <template v-else>
+      <!-- 老人卡片 -->
+      <view class="elderly-card">
+        <!-- 状态标签 -->
+        <view class="status-tag top-right" :class="elderlyInfo.statusColor">
+          {{ elderlyInfo.nursingMode }}
+        </view>
+
+        <!-- 卡片头部：头像、信息 -->
+        <view class="card-header">
+          <image
+            class="avatar"
+            :src="elderlyInfo.avatar"
+            mode="aspectFill"
+          ></image>
+          <view class="info-section">
+            <view class="name-row">
+              <text class="name">{{ elderlyInfo.name }}</text>
+            </view>
+            <view class="detail-row">
+              <text class="detail-text"
+                >{{ elderlyInfo.gender }} · {{ elderlyInfo.age }}岁 · 床位
+                {{ elderlyInfo.bedNo }}</text
+              >
+            </view>
+            <view class="tag-row">
+              <view class="tag disability-tag"
+                >失能：{{ elderlyInfo.disability }}</view
+              >
+            </view>
           </view>
         </view>
       </view>
-    </view>
 
-    <!-- 服务计划列表 -->
-    <view class="service-plan-card">
-      <view
-        v-for="(plan, categoryIndex) in servicePlans"
-        :key="plan.category"
-        class="plan-category"
-      >
-        <view class="category-title">{{ plan.category }}</view>
-        <view class="divider"></view>
-
+      <!-- 服务计划列表 -->
+      <view class="service-plan-card">
         <view
-          v-for="(item, itemIndex) in plan.items"
-          :key="item.id"
-          class="plan-item"
-          @click="toggleItem(categoryIndex, itemIndex)"
+          v-for="(plan, categoryIndex) in servicePlans"
+          :key="plan.category"
+          class="plan-category"
         >
-          <view class="checkbox" :class="{ checked: item.checked }">
-            <text v-if="item.checked" class="check-icon">✓</text>
+          <view class="category-title">{{ plan.category }}</view>
+          <view class="divider"></view>
+
+          <view
+            v-for="(item, itemIndex) in plan.items"
+            :key="item.id"
+            class="plan-item"
+            @click="toggleItem(categoryIndex, itemIndex)"
+          >
+            <view class="checkbox" :class="{ checked: item.checked }">
+              <text v-if="item.checked" class="check-icon">✓</text>
+            </view>
+            <view class="item-info">
+              <text class="item-name">{{ item.name }}</text>
+              <text class="item-progress"
+                >已完成：{{ item.completed }}/{{ item.total }} 次 /
+                {{ item.frequency }}</text
+              >
+            </view>
+            <text class="item-duration">标准时长：{{ item.duration }}</text>
           </view>
-          <view class="item-info">
-            <text class="item-name">{{ item.name }}</text>
-            <text class="item-progress"
-              >已完成：{{ item.completed }}/{{ item.total }} 次 /
-              {{ item.frequency }}</text
-            >
-          </view>
-          <text class="item-duration">标准时长：{{ item.duration }}</text>
+        </view>
+
+        <!-- 空状态 -->
+        <view v-if="servicePlans.length === 0" class="empty-state">
+          <text class="empty-text">暂无服务计划</text>
         </view>
       </view>
-    </view>
 
-    <!-- 底部按钮 -->
-    <view class="bottom-actions">
-      <view class="btn-primary" @click="startService">开始服务</view>
-      <view class="btn-default" @click="viewHistory"
-        >查看该老人历史服务记录</view
-      >
-    </view>
+      <!-- 底部按钮 -->
+      <view class="bottom-actions">
+        <view class="btn-primary" @click="startService">开始服务</view>
+        <view class="btn-default" @click="viewHistory"
+          >查看该老人历史服务记录</view
+        >
+      </view>
+    </template>
   </view>
 </template>
 
@@ -223,6 +299,12 @@ const goBack = () => {
         background-color: #d0f9d9;
         color: #52c41a;
         border: 1rpx solid #52c41a;
+      }
+
+      &.blue {
+        background-color: #e6f7ff;
+        color: #1890ff;
+        border: 1rpx solid #1890ff;
       }
 
       &.orange {
@@ -410,6 +492,52 @@ const goBack = () => {
       justify-content: center;
       font-size: 28rpx;
       border: 1rpx solid #ddd;
+    }
+  }
+
+  // 加载状态
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 100rpx 0;
+
+    .loading-spinner {
+      width: 60rpx;
+      height: 60rpx;
+      border: 4rpx solid #f3f3f3;
+      border-top: 4rpx solid #1677ff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .loading-text {
+      margin-top: 20rpx;
+      font-size: 28rpx;
+      color: #999;
+    }
+  }
+
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  // 空状态
+  .empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60rpx 0;
+
+    .empty-text {
+      font-size: 28rpx;
+      color: #999;
     }
   }
 }

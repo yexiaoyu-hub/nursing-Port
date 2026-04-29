@@ -17,12 +17,12 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: "button-click", buttonText: string, elderlyName: string): void;
+  (e: "button-click", buttonText: string, agedId: number): void;
   (e: "card-click", elderlyId: number): void;
 }>();
 
-const handleButtonClick = (buttonText: string, elderlyName: string) => {
-  emit("button-click", buttonText, elderlyName);
+const handleButtonClick = (buttonText: string) => {
+  emit("button-click", buttonText, props.item.id);
 };
 
 const handleCardClick = () => {
@@ -71,14 +71,14 @@ const handleCardClick = () => {
       <view
         v-if="item.status !== '机构护理'"
         class="action-btn default"
-        @click="handleButtonClick('一键拨号', item.name)"
+        @click="handleButtonClick('一键拨号')"
       >
         一键拨号
       </view>
       <view
         class="action-btn primary"
         :class="{ 'full-width': item.status === '机构护理' }"
-        @click="handleButtonClick('服务计划', item.name)"
+        @click="handleButtonClick('服务计划')"
       >
         服务计划
       </view>

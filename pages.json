@@ -108,6 +108,12 @@
 				"navigationBarTitleText": "登录",
 				"disableScroll": true
 			}
+		},
+		{
+			"path": "pages/serviceExecute/serviceCheckIn",
+			"style": {
+				"navigationBarTitleText": "服务打卡"
+			}
 		}
 	],
 	"globalStyle": {
