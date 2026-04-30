@@ -27,10 +27,6 @@ const nurseInfo = ref({
 // 打卡状态
 const checkInStatus = ref<"idle" | "loading" | "success">("idle");
 
-// 身份验证方式
-const authType = ref<"face" | "password">("face");
-const authStatus = ref<"idle" | "success">("idle");
-
 // 照片列表
 const photos = ref<string[]>([]);
 
@@ -95,51 +91,6 @@ const handleCheckIn = () => {
   // 跳转到打卡页面
   uni.navigateTo({
     url: `/pages/serviceExecute/serviceCheckIn?orderId=${orderId.value}&agedId=${elderlyInfo.value.id}&agedName=${elderlyInfo.value.name}&nurseName=${nurseInfo.value.name}`,
-  });
-};
-
-// 切换身份验证方式
-const switchAuthType = (type: "face" | "password") => {
-  authType.value = type;
-};
-
-// 人脸识别
-const handleFaceRecognition = () => {
-  uni.showToast({
-    title: "人脸识别中...",
-    icon: "loading",
-  });
-  // 模拟人脸识别成功
-  setTimeout(() => {
-    authStatus.value = "success";
-    uni.showToast({
-      title: "人脸识别成功",
-      icon: "success",
-    });
-  }, 1500);
-};
-
-// 密码确认
-const handlePasswordConfirm = () => {
-  uni.showModal({
-    title: "密码确认",
-    content: "请输入服务密码",
-    editable: true,
-    placeholderText: "请输入密码",
-    success: (res) => {
-      if (res.confirm && res.content) {
-        uni.showLoading({ title: "验证中..." });
-        // 模拟密码验证
-        setTimeout(() => {
-          uni.hideLoading();
-          authStatus.value = "success";
-          uni.showToast({
-            title: "验证成功",
-            icon: "success",
-          });
-        }, 1000);
-      }
-    },
   });
 };
 
@@ -220,14 +171,6 @@ const handleComplete = async () => {
   if (checkInStatus.value !== "success") {
     uni.showToast({
       title: "请先完成到达打卡",
-      icon: "none",
-    });
-    return;
-  }
-
-  if (authStatus.value !== "success") {
-    uni.showToast({
-      title: "请先完成身份验证",
       icon: "none",
     });
     return;
@@ -367,46 +310,9 @@ const handleTransferTask = () => {
       </view>
     </view>
 
-    <!-- 2) 身份验证 -->
-    <view class="section">
-      <view class="section-title">2) 身份验证 (人脸识别/密码确认)</view>
-      <view class="auth-tabs">
-        <view
-          class="auth-tab"
-          :class="{ active: authType === 'face' }"
-          @click="switchAuthType('face')"
-        >
-          人脸识别
-        </view>
-        <view
-          class="auth-tab"
-          :class="{ active: authType === 'password' }"
-          @click="switchAuthType('password')"
-        >
-          密码确认
-        </view>
-      </view>
-      <view class="auth-content">
-        <view v-if="authStatus === 'success'" class="auth-btn success">
-          <text class="success-icon">✓</text>
-          <text>身份验证已通过</text>
-        </view>
-        <view
-          v-else-if="authType === 'face'"
-          class="auth-btn"
-          @click="handleFaceRecognition"
-        >
-          开始人脸识别
-        </view>
-        <view v-else class="auth-btn" @click="handlePasswordConfirm">
-          输入密码确认
-        </view>
-      </view>
-    </view>
-
-    <!-- 3) 服务对象拍照确认 -->
-    <view class="section">
-      <view class="section-title">3) 服务对象拍照确认</view>
+    <!-- 2) 服务对象拍照确认 -->
+      <view class="section">
+        <view class="section-title">2) 服务对象拍照确认</view>
       <view class="photo-list">
         <view
           v-for="(photo, index) in photos"
@@ -427,9 +333,9 @@ const handleTransferTask = () => {
       </view>
     </view>
 
-    <!-- 4) 服务前录音 -->
+    <!-- 3) 服务前录音 -->
     <view class="section">
-      <view class="section-title">4) 服务前录音</view>
+      <view class="section-title">3) 服务前录音</view>
       <view class="voice-box">
         <view class="voice-content">
           <view class="voice-icon" @click="playVoice">
@@ -548,56 +454,6 @@ const handleTransferTask = () => {
         color: #fff;
         background-color: #52c41a;
         border: none;
-      }
-    }
-
-    // 身份验证
-    .auth-tabs {
-      display: flex;
-      gap: 20rpx;
-      margin-bottom: 20rpx;
-
-      .auth-tab {
-        flex: 1;
-        height: 70rpx;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 20rpx;
-        font-size: 26rpx;
-        background-color: #f5f5f5;
-        color: #666;
-
-        &.active {
-          background-color: #1677ff;
-          color: #fff;
-        }
-      }
-    }
-
-    .auth-content {
-      .auth-btn {
-        width: 100%;
-        height: 80rpx;
-        background-color: #f0f7ff;
-        color: #1677ff;
-        border-radius: 12rpx;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 28rpx;
-        border: 2rpx dashed #1677ff;
-
-        &.success {
-          background-color: #f6ffed;
-          color: #52c41a;
-          border: 2rpx solid #b7eb8f;
-
-          .success-icon {
-            margin-right: 8rpx;
-            font-size: 32rpx;
-          }
-        }
       }
     }
 

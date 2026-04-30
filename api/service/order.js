@@ -1,14 +1,5 @@
 import request from '@/utils/request.js'
 
-// 创建服务工单
-export const createServiceOrder = (data) => {
-    return request({
-        url: '/changhu/service-order/create',
-        method: 'post',
-        data
-    })
-}
-
 // 开始工单
 export const startServiceOrder = (orderId) => {
     return request({

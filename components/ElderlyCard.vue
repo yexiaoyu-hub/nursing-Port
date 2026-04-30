@@ -203,7 +203,7 @@ const handleCardClick = () => {
 
     .action-btn {
       flex: 1;
-      height: 64rpx;
+      height: 80rpx;
       display: flex;
       align-items: center;
       justify-content: center;

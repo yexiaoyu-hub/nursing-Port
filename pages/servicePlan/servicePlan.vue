@@ -2,7 +2,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { getAgedDetail, getServicePlanByAged } from "@/api/older/older.js";
-import { createServiceOrder } from "@/api/service/order.js";
 
 // 页面加载状态
 const loading = ref(false);
@@ -114,40 +113,11 @@ const toggleItem = (categoryIndex: number, itemIndex: number) => {
 };
 
 // 开始服务
-const startService = async () => {
-  try {
-    uni.showLoading({ title: "创建服务工单..." });
-
-    // 创建服务工单
-    const orderData = {
-      agedId: elderlyInfo.value.id,
-      agedName: elderlyInfo.value.name,
-      // 其他必要字段...
-    };
-
-    const res = await createServiceOrder(orderData);
-    uni.hideLoading();
-
-    if (res.code === 0 && res.data) {
-      const orderId = res.data.id || res.data.orderId;
-      // 跳转到服务执行页面，带上 orderId
-      uni.navigateTo({
-        url: `/pages/serviceExecute/index?orderId=${orderId}&agedId=${elderlyInfo.value.id}&agedName=${elderlyInfo.value.name}`,
-      });
-    } else {
-      uni.showToast({
-        title: res.msg || "创建工单失败",
-        icon: "none",
-      });
-    }
-  } catch (error) {
-    uni.hideLoading();
-    console.error("创建工单失败:", error);
-    uni.showToast({
-      title: "创建工单失败",
-      icon: "none",
-    });
-  }
+const startService = () => {
+  // 直接跳转到服务执行页面
+  uni.navigateTo({
+    url: `/pages/serviceExecute/index?agedId=${elderlyInfo.value.id}&agedName=${elderlyInfo.value.name}`,
+  });
 };
 
 // 查看历史记录

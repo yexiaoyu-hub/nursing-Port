@@ -23,7 +23,26 @@ const props = defineProps({
     type: String,
     default: "",
   },
+  status: {
+    type: Number,
+    default: null,
+  },
+  orderId: {
+    type: [String, Number],
+    default: "",
+  },
+  agedId: {
+    type: [String, Number],
+    default: "",
+  },
 });
+
+const emit = defineEmits(["startExecute"]);
+
+// 处理开始执行点击
+const handleStartClick = () => {
+  emit("startExecute", { orderId: props.orderId, agedId: props.agedId });
+};
 
 // 是否为机构护理
 const isInstitutionCare = computed(() => props.label === "机构护理");
@@ -47,6 +66,21 @@ const progressPercent = computed(() => {
   if (!props.orderSerTimes || props.orderSerTimes <= 0) return 0;
   const percent = (props.serTime / props.orderSerTimes) * 100;
   return Math.floor(percent);
+});
+
+// 状态映射
+const statusMap = {
+  "-1": { text: "已作废", class: "status-gray" },
+  0: { text: "未派单", class: "status-gray" },
+  1: { text: "待执行", class: "status-orange" },
+  2: { text: "执行中", class: "status-blue" },
+  3: { text: "已完成", class: "status-green" },
+  4: { text: "已取消", class: "status-gray" },
+};
+
+// 计算状态文本和样式
+const statusInfo = computed(() => {
+  return statusMap[props.status] || { text: "", class: "" };
 });
 </script>
 
@@ -74,7 +108,12 @@ const progressPercent = computed(() => {
           ><slot name="label"></slot
         ></view>
       </view>
-      <view class="labelone">失能：<slot name="disability"></slot></view>
+      <view class="label-row">
+        <view class="labelone">失能：<slot name="disability"></slot></view>
+        <view v-if="statusInfo.text" class="status-tag" :class="statusInfo.class">
+          {{ statusInfo.text }}
+        </view>
+      </view>
       <view
         style="margin: 20rpx 0 30rpx 0; height: 2rpx; background-color: #e7e7e9"
       ></view>
@@ -115,6 +154,7 @@ const progressPercent = computed(() => {
         <button
           class="buttonmin"
           :class="{ 'buttonmin-full': isInstitutionCare }"
+          @click="handleStartClick"
         >
           开始执行
         </button>
@@ -128,14 +168,12 @@ const progressPercent = computed(() => {
 <style lang="scss" scoped>
 .ServiceCard {
   width: 100%;
-  height: 620rpx;
   box-sizing: border-box;
 
   .card {
     flex: 1;
     background-color: white;
     width: 100%;
-    height: 620rpx;
     border-radius: 30rpx;
     border: 1rpx solid #e5edf8;
     box-shadow: 10rpx 10rpx 5rpx #f2f8ff;
@@ -201,6 +239,11 @@ const progressPercent = computed(() => {
         }
       }
     }
+    .label-row {
+      display: flex;
+      align-items: center;
+      margin-top: 20rpx;
+    }
     .labelone {
       min-width: 120rpx;
       max-width: 260rpx;
@@ -209,7 +252,6 @@ const progressPercent = computed(() => {
       margin-right: 15rpx;
       border-radius: 20rpx;
       border: 1rpx solid #a6a6a6;
-      margin-top: 20rpx;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -220,9 +262,42 @@ const progressPercent = computed(() => {
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .status-tag {
+      height: 40rpx;
+      padding: 0 16rpx;
+      border-radius: 20rpx;
+      font-size: 24rpx;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+
+      &.status-gray {
+        background-color: #f5f5f5;
+        color: #999999;
+        border: 1rpx solid #d9d9d9;
+      }
+
+      &.status-orange {
+        background-color: #fff7e6;
+        color: #fa8c16;
+        border: 1rpx solid #ffd591;
+      }
+
+      &.status-blue {
+        background-color: #e6f7ff;
+        color: #1890ff;
+        border: 1rpx solid #91d5ff;
+      }
+
+      &.status-green {
+        background-color: #f6ffed;
+        color: #52c41a;
+        border: 1rpx solid #b7eb8f;
+      }
+    }
     .middle {
       width: 100%;
-      height: 120rpx;
       .Project {
         font-size: 28rpx;
         font-weight: 700;

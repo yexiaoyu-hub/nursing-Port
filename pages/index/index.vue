@@ -111,8 +111,8 @@ const fetchServiceOrderData = async () => {
           id: order.id,
           name: order.fullname,
           photo: order.photo,
-          gender: "—",
-          age: "—",
+          gender: order.sex === "1" ? "男" : order.sex === "2" ? "女" : "——",
+          age: order.age || "——",
           address: order.orderAddress || "——",
           label: getServiceTypeText(order.orderHuiliType),
           disability: getDisabilityLevelText(order.shinengLevelid),
@@ -132,6 +132,9 @@ const fetchServiceOrderData = async () => {
             : "",
           orderSerTimes: order.orderSerTimes,
           serTime: order.serTime || 0,
+          status: order.status,
+          orderId: order.id,
+          agedId: order.agedId,
         }));
       } else {
         cardfrom.value = [];
@@ -154,6 +157,28 @@ const getServiceTypeText = (type) => {
 // 获取失能等级
 const getDisabilityLevelText = (level) => {
   return dictDataMap.value["changhu_sndj"]?.[level] || "";
+};
+
+// 处理开始执行按钮点击
+const handleStartExecute = ({ orderId, agedId }) => {
+  if (!orderId) {
+    uni.showToast({
+      title: "工单ID不能为空",
+      icon: "none",
+    });
+    return;
+  }
+  if (!agedId) {
+    uni.showToast({
+      title: "老人ID不能为空",
+      icon: "none",
+    });
+    return;
+  }
+  // 跳转到服务执行页面，携带工单ID和老人ID
+  uni.navigateTo({
+    url: `/pages/serviceExecute/index?orderId=${orderId}&agedId=${agedId}`,
+  });
 };
 </script>
 
@@ -231,6 +256,10 @@ const getDisabilityLevelText = (level) => {
                 :serTime="item.serTime"
                 :orderSerTimes="item.orderSerTimes"
                 :label="item.label"
+                :status="item.status"
+                :orderId="item.orderId"
+                :agedId="item.agedId"
+                @startExecute="handleStartExecute"
               >
                 <template #name
                   ><text>{{ item.name }}</text></template
@@ -382,7 +411,7 @@ const getDisabilityLevelText = (level) => {
           .timeline-line {
             width: 3rpx;
             flex: 1;
-            background-color: #cccccc;
+            background-color: #ececec;
             margin-top: 8rpx;
           }
         }
