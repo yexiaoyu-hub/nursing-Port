@@ -1,5 +1,15 @@
 import request from '@/utils/request.js'
 
+// 创建服务签到记录（通用），生成轨迹
+// signType: 1=开始, 2=服务中, 3=结束
+export const createServiceSign = (data) => {
+    return request({
+        url: '/changhu/service-order-sign/create',
+        method: 'post',
+        data
+    })
+}
+
 // 创建服务签到记录（开始），生成轨迹
 export const createServiceSignStart = (data) => {
     return request({
@@ -9,10 +19,10 @@ export const createServiceSignStart = (data) => {
     })
 }
 
-// 创建服务签到记录（进行中），生成轨迹
-export const createServiceSignProgress = (data) => {
+// 创建服务签到记录（进行中/服务中），生成轨迹
+export const createServiceSignDoing = (data) => {
     return request({
-        url: '/changhu/service-order-sign/create-progress',
+        url: '/changhu/service-order-sign/create-doing',
         method: 'post',
         data
     })
@@ -26,3 +36,22 @@ export const createServiceSignEnd = (data) => {
         data
     })
 }
+
+// 创建服务健康采集记录
+export const createServiceHealth = (data) => {
+    return request({
+        url: '/changhu/service-order-health/create',
+        method: 'post',
+        data
+    })
+}
+
+// 创建服务评价
+export const createServiceEvaluation = (data) => {
+    return request({
+        url: '/changhu/service-order-pingjia/create',
+        method: 'post',
+        data
+    })
+}
+

@@ -19,6 +19,16 @@ const props = defineProps({
     type: Number,
     default: 0,
   },
+  // 服务时长进度（秒）
+  actualDuration: {
+    type: Number,
+    default: 0,
+  },
+  // 计划时长（分钟）
+  plannedDuration: {
+    type: Number,
+    default: 40,
+  },
   label: {
     type: String,
     default: "",
@@ -63,9 +73,15 @@ const labelClass = computed(() => {
 
 // 计算服务进度百分比（只显示整数）
 const progressPercent = computed(() => {
-  if (!props.orderSerTimes || props.orderSerTimes <= 0) return 0;
-  const percent = (props.serTime / props.orderSerTimes) * 100;
-  return Math.floor(percent);
+  // 使用 actualDuration 和 plannedDuration（与服务结束页一致）
+  const actualMinutes = props.actualDuration / 60;
+  if (actualMinutes > 0 && props.plannedDuration > 0) {
+    return Math.min(
+      Math.round((actualMinutes / props.plannedDuration) * 100),
+      100
+    );
+  }
+  return 0;
 });
 
 // 状态映射
@@ -77,6 +93,30 @@ const statusMap = {
   3: { text: "已完成", class: "status-green" },
   4: { text: "已取消", class: "status-gray" },
 };
+
+// 按钮文字
+const buttonText = computed(() => {
+  // 如果状态是已完成(3)，显示"去评价"
+  if (props.status === 3) {
+    return "去评价";
+  }
+  // 如果状态是执行中(2)，显示"继续执行"
+  if (props.status === 2) {
+    return "继续执行";
+  }
+  // 其他情况显示"开始执行"
+  return "开始执行";
+});
+
+// 按钮样式类
+const buttonClass = computed(() => {
+  // 已完成状态使用橘色
+  if (props.status === 3) {
+    return "buttonmin-orange";
+  }
+  // 其他情况使用默认蓝色
+  return "";
+});
 
 // 计算状态文本和样式
 const statusInfo = computed(() => {
@@ -110,7 +150,11 @@ const statusInfo = computed(() => {
       </view>
       <view class="label-row">
         <view class="labelone">失能：<slot name="disability"></slot></view>
-        <view v-if="statusInfo.text" class="status-tag" :class="statusInfo.class">
+        <view
+          v-if="statusInfo.text"
+          class="status-tag"
+          :class="statusInfo.class"
+        >
           {{ statusInfo.text }}
         </view>
       </view>
@@ -153,10 +197,10 @@ const statusInfo = computed(() => {
         <button v-if="!isInstitutionCare" class="buttonmin">一键拨号</button>
         <button
           class="buttonmin"
-          :class="{ 'buttonmin-full': isInstitutionCare }"
+          :class="[{ 'buttonmin-full': isInstitutionCare }, buttonClass]"
           @click="handleStartClick"
         >
-          开始执行
+          {{ buttonText }}
         </button>
       </view>
     </view>
@@ -403,6 +447,12 @@ const statusInfo = computed(() => {
       .buttonmin-full {
         width: 100%;
         max-width: 600rpx;
+      }
+
+      // 橘色按钮 - 去评价
+      .buttonmin-orange {
+        background-color: #f39e43 !important;
+        border-color: #f39e43 !important;
       }
     }
   }

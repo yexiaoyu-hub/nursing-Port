@@ -37,7 +37,8 @@
                     "<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>",
                     "<uses-permission android:name=\"android.permission.FLASHLIGHT\"/>",
                     "<uses-feature android:name=\"android.hardware.camera\"/>",
-                    "<uses-permission android:name=\"android.permission.WRITE_SETTINGS\"/>"
+                    "<uses-permission android:name=\"android.permission.WRITE_SETTINGS\"/>",
+                    "<uses-permission android:name=\"android.permission.RECORD_AUDIO\"/>"
                 ]
             },
             /* ios打包配置 */
@@ -62,6 +63,9 @@
         "permission": {
             "scope.userLocation": {
                 "desc": "您的位置信息将用于小程序位置接口的效果展示"
+            },
+            "scope.record": {
+                "desc": "您的录音权限将用于服务过程录音"
             }
         }
     },

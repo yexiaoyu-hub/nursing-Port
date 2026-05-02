@@ -107,35 +107,62 @@ const fetchServiceOrderData = async () => {
         Array.isArray(data.orderList) &&
         data.orderList.length > 0
       ) {
-        cardfrom.value = data.orderList.map((order) => ({
-          id: order.id,
-          name: order.fullname,
-          photo: order.photo,
-          gender: order.sex === "1" ? "男" : order.sex === "2" ? "女" : "——",
-          age: order.age || "——",
-          address: order.orderAddress || "——",
-          label: getServiceTypeText(order.orderHuiliType),
-          disability: getDisabilityLevelText(order.shinengLevelid),
-          labelblue: order.projectList
-            ? order.projectList.map((p) => p.projectName)
-            : [],
-          time: order.orderDispatchDate
-            ? new Date(order.orderDispatchDate)
-                .toLocaleString("zh-CN", {
-                  year: "numeric",
-                  month: "2-digit",
-                  day: "2-digit",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-                .replace(/\//g, "-")
-            : "",
-          orderSerTimes: order.orderSerTimes,
-          serTime: order.serTime || 0,
-          status: order.status,
-          orderId: order.id,
-          agedId: order.agedId,
-        }));
+        cardfrom.value = data.orderList
+          .filter((order) => {
+            // 过滤掉已评价的订单
+            const evaluationKey = `serviceEvaluation_${order.id}`;
+            const evaluationData = uni.getStorageSync(evaluationKey);
+            if (evaluationData && evaluationData.isEvaluated) {
+              return false;
+            }
+            return true;
+          })
+          .map((order) => {
+            // 从本地存储获取服务时长数据
+            const storageKey = "serviceExecuteState";
+            const savedState = uni.getStorageSync(storageKey);
+            let actualDuration = 0;
+            let plannedDuration = 40;
+
+            // 如果本地有保存的状态且订单ID匹配，使用本地数据
+            if (savedState && savedState.orderId == order.id) {
+              actualDuration = savedState.serviceDuration || 0;
+              plannedDuration = savedState.plannedDuration || 40;
+            }
+
+            return {
+              id: order.id,
+              name: order.fullname,
+              photo: order.photo,
+              gender:
+                order.sex === "1" ? "男" : order.sex === "2" ? "女" : "——",
+              age: order.age || "——",
+              address: order.orderAddress || "——",
+              label: getServiceTypeText(order.orderHuiliType),
+              disability: getDisabilityLevelText(order.shinengLevelid),
+              labelblue: order.projectList
+                ? order.projectList.map((p) => p.projectName)
+                : [],
+              time: order.orderDispatchDate
+                ? new Date(order.orderDispatchDate)
+                    .toLocaleString("zh-CN", {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                    .replace(/\//g, "-")
+                : "",
+              orderSerTimes: order.orderSerTimes,
+              serTime: order.serTime || 0,
+              status: order.status,
+              orderId: order.id,
+              agedId: order.agedId,
+              actualDuration,
+              plannedDuration,
+            };
+          });
       } else {
         cardfrom.value = [];
       }
@@ -149,12 +176,12 @@ const fetchServiceOrderData = async () => {
   }
 };
 
-// 获取服务方式
+// 获取服务方式列表
 const getServiceTypeText = (type) => {
   return dictDataMap.value["changhu_nursing_type"]?.[type] || "";
 };
 
-// 获取失能等级
+// 获取失能等级列表
 const getDisabilityLevelText = (level) => {
   return dictDataMap.value["changhu_sndj"]?.[level] || "";
 };
@@ -175,10 +202,29 @@ const handleStartExecute = ({ orderId, agedId }) => {
     });
     return;
   }
-  // 跳转到服务执行页面，携带工单ID和老人ID
-  uni.navigateTo({
-    url: `/pages/serviceExecute/index?orderId=${orderId}&agedId=${agedId}`,
-  });
+
+  // 检查本地存储的状态
+  const storageKey = "serviceExecuteState";
+  const savedState = uni.getStorageSync(storageKey);
+
+  // 如果有保存的状态且订单ID匹配，使用该状态
+  if (savedState && savedState.orderId == orderId) {
+    // 跳转到服务执行页面，会自动恢复状态
+    uni.navigateTo({
+      url: `/pages/serviceExecute/index?orderId=${orderId}&agedId=${agedId}`,
+    });
+  } else {
+    // 没有保存的状态或订单ID不匹配，清除旧状态并跳转
+    uni.removeStorageSync(storageKey);
+    // 同时清除各步骤的状态
+    uni.removeStorageSync(`serviceStart_${orderId}`);
+    uni.removeStorageSync(`serviceSecond_${orderId}`);
+    uni.removeStorageSync(`serviceEnd_${orderId}`);
+
+    uni.navigateTo({
+      url: `/pages/serviceExecute/index?orderId=${orderId}&agedId=${agedId}`,
+    });
+  }
 };
 </script>
 
@@ -255,6 +301,8 @@ const handleStartExecute = ({ orderId, agedId }) => {
                 :photo="item.photo"
                 :serTime="item.serTime"
                 :orderSerTimes="item.orderSerTimes"
+                :actualDuration="item.actualDuration"
+                :plannedDuration="item.plannedDuration"
                 :label="item.label"
                 :status="item.status"
                 :orderId="item.orderId"

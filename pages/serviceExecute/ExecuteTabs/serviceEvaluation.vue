@@ -1,12 +1,45 @@
 // 服务评价标签页组件
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
+import { createServiceEvaluation } from "@/api/service/service";
+
+// Props
+const props = defineProps<{
+  orderId?: string;
+}>();
+
+// 本地存储key
+const getStorageKey = () => `serviceEvaluation_${props.orderId}`;
 
 // 评分（1-5星）
 const rating = ref(0);
 
 // 评价内容
 const comment = ref("");
+
+// 是否已评价
+const isEvaluated = ref(false);
+
+// 页面加载时恢复状态
+onMounted(() => {
+  const storageKey = getStorageKey();
+  const savedData = uni.getStorageSync(storageKey);
+  if (savedData) {
+    rating.value = savedData.rating || 0;
+    comment.value = savedData.comment || "";
+    isEvaluated.value = savedData.isEvaluated || false;
+  }
+});
+
+// 保存状态到本地
+const saveState = () => {
+  const storageKey = getStorageKey();
+  uni.setStorageSync(storageKey, {
+    rating: rating.value,
+    comment: comment.value,
+    isEvaluated: isEvaluated.value,
+  });
+};
 
 // 星级评分文字
 const ratingText = computed(() => {
@@ -16,22 +49,70 @@ const ratingText = computed(() => {
 
 // 设置评分
 const setRating = (index: number) => {
+  // 如果已评价，不允许修改
+  if (isEvaluated.value) {
+    return;
+  }
   rating.value = index;
+  saveState();
 };
 
 // 提交评价
-const handleSubmit = () => {
-  uni.showModal({
-    title: "提交成功",
-    content: "感谢您的评价！",
-    showCancel: false,
-    success: () => {
-      // 返回首页或订单列表
-      uni.navigateBack({
-        delta: 2,
-      });
-    },
-  });
+const handleSubmit = async () => {
+  // 如果已评价，不处理
+  if (isEvaluated.value) {
+    return;
+  }
+
+  // 检查评分
+  if (rating.value === 0) {
+    uni.showToast({
+      title: "请选择评分",
+      icon: "none",
+    });
+    return;
+  }
+
+  // 检查评价内容
+  if (!comment.value.trim()) {
+    uni.showToast({
+      title: "请输入评价内容",
+      icon: "none",
+    });
+    return;
+  }
+
+  uni.showLoading({ title: "提交中..." });
+
+  try {
+    const data = {
+      orderId: parseInt(props.orderId || "0") || 0,
+      star: rating.value,
+      starTxt: comment.value.trim(),
+      starTime: new Date().toISOString(),
+    };
+
+    await createServiceEvaluation(data);
+
+    uni.hideLoading();
+
+    // 标记已评价
+    isEvaluated.value = true;
+
+    // 保存状态
+    saveState();
+
+    uni.showToast({
+      title: "评价成功",
+      icon: "success",
+    });
+  } catch (error: any) {
+    uni.hideLoading();
+    uni.showToast({
+      title: error?.msg || error?.message || "提交失败",
+      icon: "none",
+    });
+  }
 };
 </script>
 
@@ -47,7 +128,7 @@ const handleSubmit = () => {
 
       <!-- 星级评分 -->
       <view class="star-section">
-        <view class="star-list">
+        <view class="star-list" :class="{ disabled: isEvaluated }">
           <view
             v-for="index in 5"
             :key="index"
@@ -67,13 +148,21 @@ const handleSubmit = () => {
         <textarea
           v-model="comment"
           class="comment-textarea"
+          :disabled="isEvaluated"
           placeholder="请输入您对本次服务的评价，包括服务态度、专业技能等..."
           maxlength="500"
+          @blur="saveState"
         />
       </view>
 
       <!-- 提交按钮 -->
-      <view class="btn-submit" @click="handleSubmit"> 提交评价 </view>
+      <view
+        class="btn-submit"
+        :class="{ disabled: isEvaluated }"
+        @click="handleSubmit"
+      >
+        {{ isEvaluated ? "已评价" : "提交评价" }}
+      </view>
     </view>
 
     <!-- 底部安全区域 -->
@@ -119,6 +208,11 @@ const handleSubmit = () => {
         display: flex;
         gap: 20rpx;
         margin-bottom: 20rpx;
+
+        &.disabled {
+          pointer-events: none;
+          opacity: 0.7;
+        }
 
         .star-item {
           width: 80rpx;
@@ -187,6 +281,11 @@ const handleSubmit = () => {
       justify-content: center;
       font-size: 30rpx;
       font-weight: 600;
+
+      &.disabled {
+        background-color: #93c5fd;
+        pointer-events: none;
+      }
     }
   }
 }
