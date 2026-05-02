@@ -1,109 +1,276 @@
 // 任务详情页
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import { onLoad } from "@dcloudio/uni-app";
+import { getServiceHistoryDetail } from "@/api/history/history.js";
+import { getAgedDetail } from "@/api/older/older.js";
+import { getServiceOrderHealth } from "@/api/service/order.js";
+
+// 页面参数
+const orderId = ref<number>(0);
+const loading = ref(false);
 
 // 页面数据
 const taskData = ref({
-  // 工单信息
-  orderNo: "CH463134",
-  status: "服务执行中",
-  isTiming: true,
-  serviceDuration: "00:25:36",
-  standardDuration: 45,
+  // 工单基础信息
+  code: "",
+  status: "",
+  isTiming: false,
+  serviceDuration: "",
+  standardDuration: 0,
 
   // 老人信息
-  elderly: {
-    name: "张三",
-    gender: "男",
-    age: 78,
-    avatar: "",
-    disabilityLevel: "中度", // 失能等级
-    bedNo: "3F-301-01", // 床位号
-    serviceStatus: "服务中", // 服务状态：服务中、待服务、服务完成
-    hasAssessmentReport: true,
-    serviceType: "机构护理",
+  elderlyInfo: {
+    name: "",
+    disabilityLevel: "",
+    bedNo: "",
+    serviceStatus: "",
+    hasAssessmentReport: false,
+    serviceType: "",
   },
 
   // 服务项目
-  serviceItems: [
-    { name: "协助助餐", duration: "15min/次", price: 20, category: "生活照料" },
-    {
-      name: "鼻饲护理",
-      duration: "30min/次",
-      price: 100,
-      category: "医疗护理",
-    },
-  ],
-  totalDuration: "45min",
-  totalPrice: 160,
-
-  // 缴费状态
-  paymentStatus: "未缴费",
-  estimatedCost: 160,
-  coupon: 0,
-  actualCost: 160,
+  serviceItemList: [],
+  totalDuration: "",
+  totalPrice: 0,
 
   // 服务过程
-  serviceProcess: [
-    {
-      step: 1,
-      time: "2026-02-01 11:19:32",
-      title: "服务人员开始服务",
-      location: "友爱路xxx号",
-      photos: ["https://placeholder.com/100x100"],
-      audio: { duration: "00:00/2:15" },
-      record: "",
-    },
-    {
-      step: 2,
-      time: "2026-02-01 11:19:32",
-      title: "服务人员服务过程记录",
-      location: "友爱路xxx号",
-      photos: [
-        "https://placeholder.com/100x100",
-        "https://placeholder.com/100x100",
-      ],
-      audio: { duration: "00:00/2:15" },
-      record: "老人情况良好，配合不错",
-    },
-    {
-      step: 3,
-      time: "2026-02-01 11:19:32",
-      title: "服务人员服务结束记录",
-      location: "友爱路xxx号",
-      photos: [
-        "https://placeholder.com/100x100",
-        "https://placeholder.com/100x100",
-      ],
-      audio: { duration: "00:00/2:15" },
-      record: "老人情况良好，配合不错",
-    },
-  ],
+  serviceProcessList: [],
 
   // 健康采集数据
   healthData: {
-    bloodPressure: { value: 125, unit: "mmHg", status: "normal" },
-    bloodSugar: { value: 8.2, unit: "mmol/L", status: "high" },
-    heartRate: { value: 87, unit: "bpm", status: "normal" },
-    bloodOxygen: { value: 98, unit: "SpO2", status: "normal" },
-    temperature: { value: 36, unit: "℃", status: "normal" },
+    bloodPressure: {
+      systolic: 0,
+      diastolic: 0,
+      unit: "mmHg",
+      status: "normal",
+    },
+    bloodSugar: { value: 0, unit: "mmol/L", status: "normal" },
+    heartRate: { value: 0, unit: "bpm", status: "normal" },
+    bloodOxygen: { value: 0, unit: "SpO2", status: "normal" },
   },
 
   // 评价信息（可选）
-  evaluation: {
-    orgRating: 5,
-    staffRating: 5,
-    content: "服务态度非常好，专业技能过硬，对老人很有耐心，非常满意这次服务！",
-  },
+  evaluation: null,
 
   // 投诉反馈信息（可选）
-  feedback: {
-    type: "服务质量",
-    content:
-      "服务过程中有一些细节需要改进，希望下次能够更加注意老人的饮食习惯。",
-    status: "处理完成",
-    canViewProcess: true,
-  },
+  feedback: null,
+});
+
+// 获取任务详情
+const fetchTaskDetail = async () => {
+  if (!orderId.value) {
+    return;
+  }
+
+  loading.value = true;
+  try {
+    const res = await getServiceHistoryDetail(orderId.value);
+
+    // 接口直接返回数据对象
+    const data = res;
+    if (data && data.id) {
+      // 映射接口数据到页面数据
+      taskData.value = {
+        // 工单基础信息
+        code: data.orderNo || "",
+        status: getStatusText(data.status),
+        isTiming: data.status === 2, // 执行中
+        serviceDuration: formatDuration(data.serTime),
+        standardDuration: data.orderSerTimes || 0,
+
+        // 老人信息
+        elderlyInfo: {
+          name: data.agedName || "",
+          gender: data.agedSex === "1" ? "男" : "女",
+          serviceStatus: getServiceStatus(data.status),
+          hasAssessmentReport: false,
+          serviceType: getNursingType(data.nursingType),
+        },
+
+        // 服务项目
+        serviceItemList: (data.projects || []).map((item: any) => ({
+          name: item.projectName || "",
+          duration: `${item.serTimes || 0} min/${item.unit || "min"}`,
+          price: item.price || 0,
+          category: item.cateName || "",
+        })),
+        totalDuration: `${data.orderSerTimes || 0}min`,
+        totalPrice: data.orderAmount || 0,
+
+        // 服务过程（暂无接口数据，留空）
+        serviceProcessList: [],
+
+        // 健康采集数据
+        healthData: {
+          bloodPressure: {
+            systolic: 0,
+            diastolic: 0,
+            unit: "mmHg",
+            status: "normal",
+          },
+          bloodSugar: { value: 0, unit: "mmol/L", status: "normal" },
+          heartRate: { value: 0, unit: "bpm", status: "normal" },
+          bloodOxygen: { value: 0, unit: "SpO2", status: "normal" },
+        },
+
+        // 评价信息（暂无接口数据）
+        evaluation: null,
+
+        // 投诉反馈信息（暂无接口数据）
+        feedback: null,
+      };
+
+      // 获取老人详细信息补充数据
+      let agedDetailId = null;
+      if (data.agedId) {
+        agedDetailId = await fetchAgedDetail(data.agedId);
+      }
+
+      // 获取服务健康采集记录（使用老人的 id）
+      if (agedDetailId) {
+        await fetchServiceOrderHealth(agedDetailId);
+      }
+    }
+  } catch (error) {
+    uni.showToast({ title: "获取详情失败", icon: "none" });
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 状态码转文本
+const getStatusText = (status: number) => {
+  const map: Record<number, string> = {
+    0: "待执行",
+    1: "待执行",
+    2: "执行中",
+    3: "已完成",
+    4: "已取消",
+  };
+  return map[status] || "未知";
+};
+
+// 获取服务状态
+const getServiceStatus = (status: number) => {
+  if (status === 2) return "服务中";
+  if (status === 3) return "服务完成";
+  return "待服务";
+};
+
+// 护理方式转文本
+const getNursingType = (type: string) => {
+  const map: Record<string, string> = {
+    "1": "机构护理",
+    "2": "居家护理",
+    "3": "社区护理",
+  };
+  return map[type] || "机构护理";
+};
+
+// 格式化时长（秒转时分秒）
+const formatDuration = (seconds: number) => {
+  if (!seconds) return "00:00:00";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(
+    s
+  ).padStart(2, "0")}`;
+};
+
+// 失能等级字典映射
+const disabilityLevelMap: Record<string, string> = {
+  "0": "基本正常",
+  "1": "轻度失能",
+  "2": "中度失能",
+  "3": "重度失能 I级",
+  "4": "重度失能 II级",
+  "5": "重度失能 III级",
+};
+
+// 获取失能等级文本
+const getDisabilityLevelText = (level: string | number) => {
+  return disabilityLevelMap[String(level)] || "";
+};
+
+// 获取老人详细信息
+const fetchAgedDetail = async (agedId: number) => {
+  try {
+    const res = await getAgedDetail(agedId);
+    if (res) {
+      // 更新老人信息
+      taskData.value.elderlyInfo.age = res.age;
+      taskData.value.elderlyInfo.disabilityLevel = getDisabilityLevelText(
+        res.shinengLevelid
+      );
+      taskData.value.elderlyInfo.bedNo = res.juzhuAddress || "";
+      taskData.value.elderlyInfo.avatar = res.photo || "";
+      // 返回老人的 id 用于获取健康采集记录
+      return res.id;
+    }
+  } catch (error) {
+    console.error("获取老人详情失败:", error);
+  }
+  return null;
+};
+
+// 获取服务健康采集记录
+const fetchServiceOrderHealth = async (orderId: number) => {
+  try {
+    const res = await getServiceOrderHealth(orderId);
+    if (!res) {
+      return;
+    }
+    const data = res.data || res;
+    if (data && data.id) {
+      // 更新健康采集数据 - 使用服务健康采集记录
+      taskData.value.healthData = {
+        bloodPressure: {
+          systolic: data.shousuoya || 0,
+          diastolic: data.shuzhangya || 0,
+          unit: "mmHg",
+          status:
+            data.shousuoya > 140 || data.shuzhangya > 90
+              ? "high"
+              : data.shousuoya < 90 || data.shuzhangya < 60
+              ? "low"
+              : "normal",
+        },
+        bloodSugar: {
+          value: data.xuetang || 0,
+          unit: "mmol/L",
+          status:
+            data.xuetang > 6.1 ? "high" : data.xuetang < 3.9 ? "low" : "normal",
+        },
+        heartRate: {
+          value: data.heartRate || 0,
+          unit: "bpm",
+          status:
+            data.heartRate > 100
+              ? "high"
+              : data.heartRate < 60
+              ? "low"
+              : "normal",
+        },
+        bloodOxygen: {
+          value: data.xueyang || 0,
+          unit: "SpO2",
+          status: data.xueyang < 95 ? "low" : "normal",
+        },
+      };
+    }
+  } catch (error) {
+    console.error("获取服务健康采集记录失败:", error);
+  }
+};
+
+// 页面加载
+onLoad((options) => {
+  if (options?.id) {
+    orderId.value = Number(options.id);
+    fetchTaskDetail();
+  }
 });
 
 // 是否有评价信息
@@ -160,37 +327,39 @@ const viewProcess = () => {
     <view class="elderly-card">
       <view class="card-header">
         <view class="avatar">
-          <text v-if="!taskData.elderly.avatar" class="avatar-text">头像</text>
-          <image v-else :src="taskData.elderly.avatar" mode="aspectFill" />
+          <text v-if="!taskData.elderlyInfo.avatar" class="avatar-text"
+            >头像</text
+          >
+          <image v-else :src="taskData.elderlyInfo.avatar" mode="aspectFill" />
         </view>
         <view class="elderly-info">
           <view class="info-header">
             <view class="info-row">
-              <text class="name">{{ taskData.elderly.name }}</text>
+              <text class="name">{{ taskData.elderlyInfo.name }}</text>
             </view>
             <view
               class="nursing-mode-tag"
-              :class="getNursingModeClass(taskData.elderly.serviceType)"
+              :class="getNursingModeClass(taskData.elderlyInfo.serviceType)"
             >
-              {{ taskData.elderly.serviceType }}
+              {{ taskData.elderlyInfo.serviceType }}
             </view>
           </view>
           <view class="info-subtitle">
-            <text class="gender">{{ taskData.elderly.gender }}</text>
+            <text class="gender">{{ taskData.elderlyInfo.gender }}</text>
             <text class="divider">·</text>
-            <text class="age">{{ taskData.elderly.age }}岁</text>
+            <text class="age">{{ taskData.elderlyInfo.age }}岁</text>
             <text class="divider">·</text>
-            <text class="bed">床位 {{ taskData.elderly.bedNo }}</text>
+            <text class="bed">床位 {{ taskData.elderlyInfo.bedNo }}</text>
           </view>
           <view class="tags">
             <text class="tag disability"
-              >失能：{{ taskData.elderly.disabilityLevel }}</text
+              >失能：{{ taskData.elderlyInfo.disabilityLevel }}</text
             >
-            <text class="tag care-level">工单：{{ taskData.orderNo }}</text>
+            <text class="tag care-level">工单：{{ taskData.code }}</text>
             <text
               class="tag service-status"
-              :class="getServiceStatusClass(taskData.elderly.serviceStatus)"
-              >{{ taskData.elderly.serviceStatus }}</text
+              :class="getServiceStatusClass(taskData.elderlyInfo.serviceStatus)"
+              >{{ taskData.elderlyInfo.serviceStatus }}</text
             >
           </view>
         </view>
@@ -208,7 +377,7 @@ const viewProcess = () => {
           <text class="duration-label">已服务时长</text>
           <text class="duration-value">{{ taskData.serviceDuration }}</text>
           <text class="duration-standard"
-            >/{{ taskData.standardDuration }}min（标准服务时长）</text
+            >/ {{ taskData.standardDuration }} min（标准服务时长）</text
           >
         </view>
       </view>
@@ -226,7 +395,7 @@ const viewProcess = () => {
         </view>
         <view
           class="table-row"
-          v-for="item in taskData.serviceItems"
+          v-for="item in taskData.serviceItemList"
           :key="item.name"
         >
           <text class="td">{{ item.name }}</text>
@@ -243,46 +412,20 @@ const viewProcess = () => {
       </view>
     </view>
 
-    <!-- 缴费信息 -->
-    <view class="section">
-      <view class="section-title">
-        缴费状态：
-        <text
-          class="payment-status"
-          :class="{ unpaid: taskData.paymentStatus === '未缴费' }"
-          >{{ taskData.paymentStatus }}</text
-        >
-      </view>
-      <view class="payment-info">
-        <view class="payment-item">
-          <text class="label">预计费用：</text>
-          <text class="value">¥{{ taskData.estimatedCost }}</text>
-        </view>
-        <view class="payment-item">
-          <text class="label">优惠券：</text>
-          <text class="value">¥{{ taskData.coupon }}</text>
-        </view>
-        <view class="payment-item">
-          <text class="label">实际服务费用：</text>
-          <text class="value highlight">¥{{ taskData.actualCost }}</text>
-        </view>
-      </view>
-    </view>
-
     <!-- 服务过程 -->
     <view class="section">
       <view class="section-title">服务过程</view>
       <view class="timeline">
         <view
           class="timeline-item"
-          v-for="(item, index) in taskData.serviceProcess"
+          v-for="(item, index) in taskData.serviceProcessList"
           :key="index"
         >
           <view class="timeline-left">
             <view class="timeline-dot">{{ item.step }}</view>
             <view
               class="timeline-line"
-              v-if="index < taskData.serviceProcess.length - 1"
+              v-if="index < taskData.serviceProcessList.length - 1"
             ></view>
           </view>
           <view class="timeline-content">
@@ -330,10 +473,25 @@ const viewProcess = () => {
       <view class="health-list">
         <view class="health-item">
           <text class="health-label">血压</text>
-          <text class="health-value"
-            >{{ taskData.healthData.bloodPressure.value }}
-            {{ taskData.healthData.bloodPressure.unit }}</text
-          >
+          <view class="health-value-box">
+            <text
+              v-if="taskData.healthData.bloodPressure.status === 'high'"
+              class="status-tag-high"
+              >偏高</text
+            >
+            <text
+              v-else-if="taskData.healthData.bloodPressure.status === 'low'"
+              class="status-tag-low"
+              >偏低</text
+            >
+            <text v-else class="status-tag-normal">正常</text>
+            <text class="health-value"
+              >{{ taskData.healthData.bloodPressure.systolic }}/{{
+                taskData.healthData.bloodPressure.diastolic
+              }}
+              {{ taskData.healthData.bloodPressure.unit }}</text
+            >
+          </view>
         </view>
         <view class="health-item">
           <text class="health-label">血糖</text>
@@ -343,6 +501,12 @@ const viewProcess = () => {
               class="status-tag-high"
               >偏高</text
             >
+            <text
+              v-else-if="taskData.healthData.bloodSugar.status === 'low'"
+              class="status-tag-low"
+              >偏低</text
+            >
+            <text v-else class="status-tag-normal">正常</text>
             <text class="health-value"
               >{{ taskData.healthData.bloodSugar.value }}
               {{ taskData.healthData.bloodSugar.unit }}</text
@@ -351,24 +515,38 @@ const viewProcess = () => {
         </view>
         <view class="health-item">
           <text class="health-label">心率</text>
-          <text class="health-value"
-            >{{ taskData.healthData.heartRate.value }}
-            {{ taskData.healthData.heartRate.unit }}</text
-          >
+          <view class="health-value-box">
+            <text
+              v-if="taskData.healthData.heartRate.status === 'high'"
+              class="status-tag-high"
+              >偏高</text
+            >
+            <text
+              v-else-if="taskData.healthData.heartRate.status === 'low'"
+              class="status-tag-low"
+              >偏低</text
+            >
+            <text v-else class="status-tag-normal">正常</text>
+            <text class="health-value"
+              >{{ taskData.healthData.heartRate.value }}
+              {{ taskData.healthData.heartRate.unit }}</text
+            >
+          </view>
         </view>
         <view class="health-item">
-          <text class="health-label">血氧</text>
-          <text class="health-value"
-            >{{ taskData.healthData.bloodOxygen.value }}
-            {{ taskData.healthData.bloodOxygen.unit }}</text
-          >
-        </view>
-        <view class="health-item">
-          <text class="health-label">体温</text>
-          <text class="health-value"
-            >{{ taskData.healthData.temperature.value }}
-            {{ taskData.healthData.temperature.unit }}</text
-          >
+          <text class="health-label">血氧饱和度</text>
+          <view class="health-value-box">
+            <text
+              v-if="taskData.healthData.bloodOxygen.status === 'low'"
+              class="status-tag-low"
+              >偏低</text
+            >
+            <text v-else class="status-tag-normal">正常</text>
+            <text class="health-value"
+              >{{ taskData.healthData.bloodOxygen.value }}
+              {{ taskData.healthData.bloodOxygen.unit }}</text
+            >
+          </view>
         </view>
       </view>
     </view>
@@ -909,6 +1087,22 @@ const viewProcess = () => {
           padding: 4rpx 12rpx;
           background-color: #fff2f0;
           color: #ff4d4f;
+          border-radius: 8rpx;
+          font-size: 22rpx;
+        }
+
+        .status-tag-low {
+          padding: 4rpx 12rpx;
+          background-color: #e6f7ff;
+          color: #1890ff;
+          border-radius: 8rpx;
+          font-size: 22rpx;
+        }
+
+        .status-tag-normal {
+          padding: 4rpx 12rpx;
+          background-color: #f6ffed;
+          color: #52c41a;
           border-radius: 8rpx;
           font-size: 22rpx;
         }

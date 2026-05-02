@@ -31,3 +31,12 @@ export const getServiceOrderDetail = (orderId) => {
         method: 'get'
     })
 }
+
+// 获得服务健康采集记录
+export const getServiceOrderHealth = (orderId) => {
+    return request({
+        url: `/changhu/service-order-health/get`,
+        method: 'get',
+        params: { id: orderId }
+    })
+}

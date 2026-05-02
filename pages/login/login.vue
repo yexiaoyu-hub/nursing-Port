@@ -118,6 +118,7 @@ import {
   loginByPasswordService,
   getUserInfoService,
 } from "@/api/login.js";
+import { getUserProfileService } from "@/api/user.js";
 
 // 登录表单数据
 const form = ref({
@@ -223,6 +224,13 @@ const handleLogin = async () => {
 
     // 获取用户详细信息
     const userInfo = await getUserInfoService();
+
+    // 获取个人资料（包含 staffId）
+    const userProfile = await getUserProfileService();
+    if (userProfile && userProfile.staffId && userInfo.user) {
+      userInfo.user.staffId = userProfile.staffId;
+    }
+
     uni.setStorageSync("userInfo", userInfo);
 
     // 保存记住的账号
