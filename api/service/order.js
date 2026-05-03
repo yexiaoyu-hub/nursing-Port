@@ -40,3 +40,12 @@ export const getServiceOrderHealth = (orderId) => {
         params: { id: orderId }
     })
 }
+
+// 获得服务工单详情（含项目/评价/健康/投诉/签到/录音）
+export const getServiceOrderWithProjectsAll = (orderId) => {
+    return request({
+        url: `/changhu/service-order/get-with-projects-all`,
+        method: 'get',
+        params: { id: orderId }
+    })
+}

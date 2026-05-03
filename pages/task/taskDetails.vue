@@ -4,7 +4,10 @@ import { ref, computed } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import { getServiceHistoryDetail } from "@/api/history/history.js";
 import { getAgedDetail } from "@/api/older/older.js";
-import { getServiceOrderHealth } from "@/api/service/order.js";
+import {
+  getServiceOrderHealth,
+  getServiceOrderWithProjectsAll,
+} from "@/api/service/order.js";
 
 // 页面参数
 const orderId = ref<number>(0);
@@ -67,10 +70,9 @@ const fetchTaskDetail = async () => {
   try {
     const res = await getServiceHistoryDetail(orderId.value);
 
-    // 接口直接返回数据对象
     const data = res;
     if (data && data.id) {
-      // 映射接口数据到页面数据
+      // 映射接口数据
       taskData.value = {
         // 工单基础信息
         code: data.orderNo || "",
@@ -131,6 +133,9 @@ const fetchTaskDetail = async () => {
       if (agedDetailId) {
         await fetchServiceOrderHealth(agedDetailId);
       }
+
+      // 获取服务过程数据
+      await fetchServiceProcess(orderId.value);
     }
   } catch (error) {
     uni.showToast({ title: "获取详情失败", icon: "none" });
@@ -265,6 +270,71 @@ const fetchServiceOrderHealth = async (orderId: number) => {
   }
 };
 
+// 签到类型映射
+const signTypeMap: Record<number, string> = {
+  1: "服务人员开始服务",
+  2: "服务人员服务中",
+  3: "服务人员结束服务",
+};
+
+// 格式化音频时长
+const formatAudioTime = (seconds: number) => {
+  if (!seconds) return "00:00";
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+};
+
+// 获取服务过程数据
+const fetchServiceProcess = async (orderId: number) => {
+  try {
+    const res = await getServiceOrderWithProjectsAll(orderId);
+    if (!res) {
+      return;
+    }
+    const data = res.data || res;
+    if (data && data.signs && Array.isArray(data.signs)) {
+      // 处理签到记录
+      const processList = data.signs.map((sign: any, index: number) => {
+        // 处理照片
+        const photos: string[] = [];
+        if (sign.signPotos) {
+          try {
+            const parsed = JSON.parse(sign.signPotos);
+            if (Array.isArray(parsed)) {
+              photos.push(...parsed);
+            }
+          } catch {
+            // 如果不是JSON数组，按逗号分割
+            photos.push(...sign.signPotos.split(",").filter((p: string) => p));
+          }
+        }
+
+        // 处理录音
+        const audioList = (sign.mp3s || []).map((mp3: any) => ({
+          url: mp3.mp3Url || "",
+          duration: mp3.mp3Time || 0,
+          durationText: formatAudioTime(mp3.mp3Time || 0),
+        }));
+
+        return {
+          step: index + 1,
+          time: sign.signTime || "",
+          title: signTypeMap[sign.signType] || "服务记录",
+          location: sign.signAddressName || sign.signAddress || "",
+          photos: photos,
+          audioList: audioList,
+          record: sign.remark || "",
+        };
+      });
+
+      taskData.value.serviceProcessList = processList;
+    }
+  } catch (error) {
+    console.error("获取服务过程数据失败:", error);
+  }
+};
+
 // 页面加载
 onLoad((options) => {
   if (options?.id) {
@@ -299,24 +369,25 @@ const getServiceStatusClass = (status: string) => {
   return classMap[status] || "";
 };
 
-// 返回上一页
-const goBack = () => {
-  uni.navigateBack();
-};
-
-// 查看评估报告
-const viewAssessmentReport = () => {
-  uni.showToast({
-    title: "查看评估报告",
-    icon: "none",
+// 预览图片
+const previewImage = (urls: string[], current: number) => {
+  uni.previewImage({
+    urls: urls,
+    current: current,
   });
 };
 
-// 查看处理过程
-const viewProcess = () => {
-  uni.showToast({
-    title: "查看处理过程",
-    icon: "none",
+// 播放音频
+const playAudio = (url: string) => {
+  if (!url) {
+    uni.showToast({ title: "音频地址无效", icon: "none" });
+    return;
+  }
+  const innerAudioContext = uni.createInnerAudioContext();
+  innerAudioContext.src = url;
+  innerAudioContext.play();
+  innerAudioContext.onError(() => {
+    uni.showToast({ title: "音频播放失败", icon: "none" });
   });
 };
 </script>
@@ -446,20 +517,23 @@ const viewProcess = () => {
                   :src="photo"
                   mode="aspectFill"
                   class="photo-item"
+                  @click="previewImage(item.photos, pIndex)"
                 />
               </view>
-              <!-- 录音 -->
-              <view class="audio-player" v-if="item.audio">
-                <view class="play-btn">▶</view>
+              <!-- 录音列表 -->
+              <view
+                class="audio-player"
+                v-for="(audio, aIndex) in item.audioList"
+                :key="aIndex"
+                @click="playAudio(audio.url)"
+              >
+                <view class="play-btn">
+                  <text class="play-icon">▶</text>
+                </view>
                 <view class="progress-bar">
                   <view class="progress-fill"></view>
                 </view>
-                <text class="audio-time">{{ item.audio.duration }}</text>
-              </view>
-              <!-- 记录 -->
-              <view class="record-text" v-if="item.record">
-                <text class="record-label">过程记录：</text>
-                <text class="record-content">{{ item.record }}</text>
+                <text class="audio-time">00:00/{{ audio.durationText }}</text>
               </view>
             </view>
           </view>
@@ -475,19 +549,29 @@ const viewProcess = () => {
           <text class="health-label">血压</text>
           <view class="health-value-box">
             <text
-              v-if="taskData.healthData.bloodPressure.status === 'high'"
+              v-if="
+                taskData.healthData.bloodPressure.systolic &&
+                taskData.healthData.bloodPressure.status === 'high'
+              "
               class="status-tag-high"
               >偏高</text
             >
             <text
-              v-else-if="taskData.healthData.bloodPressure.status === 'low'"
+              v-else-if="
+                taskData.healthData.bloodPressure.systolic &&
+                taskData.healthData.bloodPressure.status === 'low'
+              "
               class="status-tag-low"
               >偏低</text
             >
-            <text v-else class="status-tag-normal">正常</text>
+            <text
+              v-else-if="taskData.healthData.bloodPressure.systolic"
+              class="status-tag-normal"
+              >正常</text
+            >
             <text class="health-value"
-              >{{ taskData.healthData.bloodPressure.systolic }}/{{
-                taskData.healthData.bloodPressure.diastolic
+              >{{ taskData.healthData.bloodPressure.systolic || 0 }}/{{
+                taskData.healthData.bloodPressure.diastolic || 0
               }}
               {{ taskData.healthData.bloodPressure.unit }}</text
             >
@@ -497,18 +581,28 @@ const viewProcess = () => {
           <text class="health-label">血糖</text>
           <view class="health-value-box">
             <text
-              v-if="taskData.healthData.bloodSugar.status === 'high'"
+              v-if="
+                taskData.healthData.bloodSugar.value &&
+                taskData.healthData.bloodSugar.status === 'high'
+              "
               class="status-tag-high"
               >偏高</text
             >
             <text
-              v-else-if="taskData.healthData.bloodSugar.status === 'low'"
+              v-else-if="
+                taskData.healthData.bloodSugar.value &&
+                taskData.healthData.bloodSugar.status === 'low'
+              "
               class="status-tag-low"
               >偏低</text
             >
-            <text v-else class="status-tag-normal">正常</text>
+            <text
+              v-else-if="taskData.healthData.bloodSugar.value"
+              class="status-tag-normal"
+              >正常</text
+            >
             <text class="health-value"
-              >{{ taskData.healthData.bloodSugar.value }}
+              >{{ taskData.healthData.bloodSugar.value || 0 }}
               {{ taskData.healthData.bloodSugar.unit }}</text
             >
           </view>
@@ -517,18 +611,28 @@ const viewProcess = () => {
           <text class="health-label">心率</text>
           <view class="health-value-box">
             <text
-              v-if="taskData.healthData.heartRate.status === 'high'"
+              v-if="
+                taskData.healthData.heartRate.value &&
+                taskData.healthData.heartRate.status === 'high'
+              "
               class="status-tag-high"
               >偏高</text
             >
             <text
-              v-else-if="taskData.healthData.heartRate.status === 'low'"
+              v-else-if="
+                taskData.healthData.heartRate.value &&
+                taskData.healthData.heartRate.status === 'low'
+              "
               class="status-tag-low"
               >偏低</text
             >
-            <text v-else class="status-tag-normal">正常</text>
+            <text
+              v-else-if="taskData.healthData.heartRate.value"
+              class="status-tag-normal"
+              >正常</text
+            >
             <text class="health-value"
-              >{{ taskData.healthData.heartRate.value }}
+              >{{ taskData.healthData.heartRate.value || 0 }}
               {{ taskData.healthData.heartRate.unit }}</text
             >
           </view>
@@ -537,13 +641,20 @@ const viewProcess = () => {
           <text class="health-label">血氧饱和度</text>
           <view class="health-value-box">
             <text
-              v-if="taskData.healthData.bloodOxygen.status === 'low'"
+              v-if="
+                taskData.healthData.bloodOxygen.value &&
+                taskData.healthData.bloodOxygen.status === 'low'
+              "
               class="status-tag-low"
               >偏低</text
             >
-            <text v-else class="status-tag-normal">正常</text>
+            <text
+              v-else-if="taskData.healthData.bloodOxygen.value"
+              class="status-tag-normal"
+              >正常</text
+            >
             <text class="health-value"
-              >{{ taskData.healthData.bloodOxygen.value }}
+              >{{ taskData.healthData.bloodOxygen.value || 0 }}
               {{ taskData.healthData.bloodOxygen.unit }}</text
             >
           </view>
@@ -928,25 +1039,26 @@ const viewProcess = () => {
     .timeline {
       .timeline-item {
         display: flex;
-        gap: 20rpx;
+        gap: 24rpx;
 
         .timeline-left {
           display: flex;
           flex-direction: column;
           align-items: center;
-          width: 40rpx;
+          width: 48rpx;
 
           .timeline-dot {
-            width: 40rpx;
-            height: 40rpx;
+            width: 48rpx;
+            height: 48rpx;
             border-radius: 50%;
-            background-color: #1677ff;
-            color: #fff;
+            background-color: #fff;
+            border: 2rpx solid #e0e0e0;
+            color: #666;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 22rpx;
-            font-weight: 600;
+            font-size: 24rpx;
+            font-weight: 500;
           }
 
           .timeline-line {
@@ -959,63 +1071,74 @@ const viewProcess = () => {
 
         .timeline-content {
           flex: 1;
-          padding-bottom: 30rpx;
+          padding-bottom: 40rpx;
 
           .timeline-header {
             margin-bottom: 16rpx;
 
             .time {
-              font-size: 24rpx;
-              color: #999;
+              font-size: 28rpx;
+              color: #333;
+              font-weight: 500;
               margin-right: 16rpx;
             }
 
             .title {
-              font-size: 26rpx;
+              font-size: 28rpx;
               color: #333;
               font-weight: 500;
               margin-right: 16rpx;
             }
 
             .location {
-              font-size: 22rpx;
+              font-size: 24rpx;
               color: #1677ff;
+              display: flex;
+              align-items: center;
+              gap: 4rpx;
+              margin-top: 8rpx;
             }
           }
 
           .timeline-body {
             .photo-list {
               display: flex;
-              gap: 12rpx;
+              gap: 16rpx;
               margin-bottom: 16rpx;
 
               .photo-item {
-                width: 120rpx;
-                height: 120rpx;
-                border-radius: 8rpx;
-                background-color: #f0f0f0;
+                width: 160rpx;
+                height: 160rpx;
+                border-radius: 12rpx;
+                background-color: #f5f5f5;
               }
             }
 
             .audio-player {
               display: flex;
               align-items: center;
-              gap: 12rpx;
-              padding: 12rpx 16rpx;
+              gap: 16rpx;
+              padding: 16rpx 20rpx;
               background-color: #f5f5f5;
-              border-radius: 8rpx;
+              border-radius: 32rpx;
               margin-bottom: 16rpx;
+              width: fit-content;
+              min-width: 400rpx;
 
               .play-btn {
-                width: 48rpx;
-                height: 48rpx;
+                width: 56rpx;
+                height: 56rpx;
                 background: linear-gradient(135deg, #52c41a, #389e0d);
                 border-radius: 50%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color: #fff;
-                font-size: 20rpx;
+
+                .play-icon {
+                  color: #fff;
+                  font-size: 24rpx;
+                  margin-left: 4rpx;
+                }
               }
 
               .progress-bar {
@@ -1026,7 +1149,7 @@ const viewProcess = () => {
                 overflow: hidden;
 
                 .progress-fill {
-                  width: 30%;
+                  width: 0%;
                   height: 100%;
                   background: linear-gradient(90deg, #52c41a, #95de64);
                   border-radius: 3rpx;
@@ -1034,18 +1157,8 @@ const viewProcess = () => {
               }
 
               .audio-time {
-                font-size: 20rpx;
+                font-size: 24rpx;
                 color: #999;
-              }
-            }
-
-            .record-text {
-              font-size: 24rpx;
-              color: #666;
-
-              .record-label {
-                color: #333;
-                font-weight: 500;
               }
             }
           }
