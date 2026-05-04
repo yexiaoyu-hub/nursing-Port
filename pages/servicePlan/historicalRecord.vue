@@ -215,6 +215,13 @@ const fetchServiceRecords = async (agedId: string) => {
   }
 };
 
+// 点击服务记录跳转到任务详情
+const handleRecordClick = (record: ServiceRecord) => {
+  uni.navigateTo({
+    url: `/pages/task/taskDetails?id=${record.workOrderNo}`,
+  });
+};
+
 // 页面加载
 onMounted(() => {
   const pages = getCurrentPages(); //获取当前页面栈
@@ -313,6 +320,7 @@ onMounted(() => {
         class="record-item"
         v-for="record in filteredRecords"
         :key="record.id"
+        @click="handleRecordClick(record)"
       >
         <view class="record-header">
           <view class="record-title">
@@ -603,12 +611,14 @@ onMounted(() => {
 
       .record-info {
         display: flex;
-        gap: 24rpx;
+        flex-wrap: wrap;
+        gap: 12rpx 24rpx;
         margin-bottom: 16rpx;
 
         .info-item {
           font-size: 24rpx;
           color: #666;
+          white-space: nowrap;
         }
       }
 

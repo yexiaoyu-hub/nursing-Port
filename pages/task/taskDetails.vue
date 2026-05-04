@@ -1,13 +1,10 @@
 // 任务详情页
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import { onLoad } from "@dcloudio/uni-app";
+import { ref, computed, onUnmounted } from "vue";
+import { onLoad, onShow, onHide } from "@dcloudio/uni-app";
 import { getServiceHistoryDetail } from "@/api/history/history.js";
 import { getAgedDetail } from "@/api/older/older.js";
-import {
-  getServiceOrderHealth,
-  getServiceOrderWithProjectsAll,
-} from "@/api/service/order.js";
+import { getServiceOrderWithProjectsAll } from "@/api/service/order.js";
 
 // 页面参数
 const orderId = ref<number>(0);
@@ -16,11 +13,14 @@ const loading = ref(false);
 // 页面数据
 const taskData = ref({
   // 工单基础信息
+  id: 0,
   code: "",
   status: "",
   isTiming: false,
   serviceDuration: "",
+  serviceDurationSeconds: 0,
   standardDuration: 0,
+  agedId: null,
 
   // 老人信息
   elderlyInfo: {
@@ -75,11 +75,15 @@ const fetchTaskDetail = async () => {
       // 映射接口数据
       taskData.value = {
         // 工单基础信息
-        code: data.orderNo || "",
+        id: data.id, // 工单ID（用于执行）
+        code: data.orderNo || "", // 工单编号
         status: getStatusText(data.status),
+        statusCode: data.status, // 保存原始状态码
         isTiming: data.status === 2, // 执行中
         serviceDuration: formatDuration(data.serTime),
+        serviceDurationSeconds: data.serTime || 0, // 保存秒数用于计算进度
         standardDuration: data.orderSerTimes || 0,
+        agedId: data.agedId, // 保存老人ID
 
         // 老人信息
         elderlyInfo: {
@@ -100,7 +104,7 @@ const fetchTaskDetail = async () => {
         totalDuration: `${data.orderSerTimes || 0}min`,
         totalPrice: data.orderAmount || 0,
 
-        // 服务过程（暂无接口数据，留空）
+        // 服务过程
         serviceProcessList: [],
 
         // 健康采集数据
@@ -116,10 +120,10 @@ const fetchTaskDetail = async () => {
           bloodOxygen: { value: 0, unit: "SpO2", status: "normal" },
         },
 
-        // 评价信息（暂无接口数据）
+        // 评价信息
         evaluation: null,
 
-        // 投诉反馈信息（暂无接口数据）
+        // 投诉反馈信息
         feedback: null,
       };
 
@@ -129,12 +133,7 @@ const fetchTaskDetail = async () => {
         agedDetailId = await fetchAgedDetail(data.agedId);
       }
 
-      // 获取服务健康采集记录（使用老人的 id）
-      if (agedDetailId) {
-        await fetchServiceOrderHealth(agedDetailId);
-      }
-
-      // 获取服务过程数据
+      // 获取服务过程数据（包含健康数据）
       await fetchServiceProcess(orderId.value);
     }
   } catch (error) {
@@ -147,7 +146,7 @@ const fetchTaskDetail = async () => {
 // 状态码转文本
 const getStatusText = (status: number) => {
   const map: Record<number, string> = {
-    0: "待执行",
+    0: "未派单",
     1: "待执行",
     2: "执行中",
     3: "已完成",
@@ -220,56 +219,6 @@ const fetchAgedDetail = async (agedId: number) => {
   return null;
 };
 
-// 获取服务健康采集记录
-const fetchServiceOrderHealth = async (orderId: number) => {
-  try {
-    const res = await getServiceOrderHealth(orderId);
-    if (!res) {
-      return;
-    }
-    const data = res.data || res;
-    if (data && data.id) {
-      // 更新健康采集数据 - 使用服务健康采集记录
-      taskData.value.healthData = {
-        bloodPressure: {
-          systolic: data.shousuoya || 0,
-          diastolic: data.shuzhangya || 0,
-          unit: "mmHg",
-          status:
-            data.shousuoya > 140 || data.shuzhangya > 90
-              ? "high"
-              : data.shousuoya < 90 || data.shuzhangya < 60
-              ? "low"
-              : "normal",
-        },
-        bloodSugar: {
-          value: data.xuetang || 0,
-          unit: "mmol/L",
-          status:
-            data.xuetang > 6.1 ? "high" : data.xuetang < 3.9 ? "low" : "normal",
-        },
-        heartRate: {
-          value: data.heartRate || 0,
-          unit: "bpm",
-          status:
-            data.heartRate > 100
-              ? "high"
-              : data.heartRate < 60
-              ? "low"
-              : "normal",
-        },
-        bloodOxygen: {
-          value: data.xueyang || 0,
-          unit: "SpO2",
-          status: data.xueyang < 95 ? "low" : "normal",
-        },
-      };
-    }
-  } catch (error) {
-    console.error("获取服务健康采集记录失败:", error);
-  }
-};
-
 // 签到类型映射
 const signTypeMap: Record<number, string> = {
   1: "服务人员开始服务",
@@ -285,6 +234,75 @@ const formatAudioTime = (seconds: number) => {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 };
 
+// 格式化时间戳
+const formatTimestamp = (timestamp: string | number) => {
+  if (!timestamp) return "";
+  // 如果是字符串且不是纯数字，直接返回
+  if (typeof timestamp === "string" && isNaN(Number(timestamp))) {
+    return timestamp;
+  }
+  // 转换为数字
+  let ts = Number(timestamp);
+  // 如果是秒级时间戳（10位），转换为毫秒
+  if (String(ts).length === 10) {
+    ts = ts * 1000;
+  }
+  const date = new Date(ts);
+  if (isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
+// 处理健康数据
+const processHealthData = (healths: any[]) => {
+  if (!healths || !Array.isArray(healths) || healths.length === 0) {
+    return;
+  }
+  // 找到第一条有有效数据的记录（shousuoya、xuetang、heartRate、xueyang 至少有一个有值）
+  const data = healths.find(
+    (h: any) =>
+      h.shousuoya || h.shuzhangya || h.xuetang || h.heartRate || h.xueyang
+  );
+  if (!data) {
+    return;
+  }
+  taskData.value.healthData = {
+    bloodPressure: {
+      systolic: data.shousuoya || 0,
+      diastolic: data.shuzhangya || 0,
+      unit: "mmHg",
+      status:
+        data.shousuoya > 140 || data.shuzhangya > 90
+          ? "high"
+          : data.shousuoya < 90 || data.shuzhangya < 60
+          ? "low"
+          : "normal",
+    },
+    bloodSugar: {
+      value: data.xuetang || 0,
+      unit: "mmol/L",
+      status:
+        data.xuetang > 6.1 ? "high" : data.xuetang < 3.9 ? "low" : "normal",
+    },
+    heartRate: {
+      value: data.heartRate || 0,
+      unit: "bpm",
+      status:
+        data.heartRate > 100 ? "high" : data.heartRate < 60 ? "low" : "normal",
+    },
+    bloodOxygen: {
+      value: data.xueyang || 0,
+      unit: "SpO2",
+      status: data.xueyang < 95 ? "low" : "normal",
+    },
+  };
+};
+
 // 获取服务过程数据
 const fetchServiceProcess = async (orderId: number) => {
   try {
@@ -293,6 +311,30 @@ const fetchServiceProcess = async (orderId: number) => {
       return;
     }
     const data = res.data || res;
+
+    // 处理健康数据
+    if (data && data.healths && Array.isArray(data.healths)) {
+      processHealthData(data.healths);
+    }
+
+    // 处理评价数据
+    if (
+      data &&
+      data.pingjias &&
+      Array.isArray(data.pingjias) &&
+      data.pingjias.length > 0
+    ) {
+      const evalData = data.pingjias[0];
+      // 使用接口返回的字段名（star/starTxt）
+      taskData.value.evaluation = {
+        orgRating: evalData.star || 0,
+        staffRating: evalData.star || 0, // 只有一个评分字段
+        content: evalData.starTxt || "",
+      };
+    } else {
+      taskData.value.evaluation = null;
+    }
+
     if (data && data.signs && Array.isArray(data.signs)) {
       // 处理签到记录
       const processList = data.signs.map((sign: any, index: number) => {
@@ -319,9 +361,9 @@ const fetchServiceProcess = async (orderId: number) => {
 
         return {
           step: index + 1,
-          time: sign.signTime || "",
+          time: formatTimestamp(sign.signTime),
           title: signTypeMap[sign.signType] || "服务记录",
-          location: sign.signAddressName || sign.signAddress || "",
+          location: sign.signAddressName || "",
           photos: photos,
           audioList: audioList,
           record: sign.remark || "",
@@ -335,12 +377,116 @@ const fetchServiceProcess = async (orderId: number) => {
   }
 };
 
+// 服务中页面的存储键
+const getServiceSecondStorageKey = () => `serviceSecond_${orderId.value}`;
+
+// 服务执行主页的存储键（包含最终时长）
+const getServiceExecuteStorageKey = () => `serviceExecuteState`;
+
+// 从服务中页面获取当前服务时长
+const getServiceDurationFromSecondPage = () => {
+  try {
+    const state = uni.getStorageSync(getServiceSecondStorageKey());
+    if (state && state.serviceStartTime) {
+      // 根据服务中页面的开始时间计算当前时长
+      const duration = Math.floor((Date.now() - state.serviceStartTime) / 1000);
+      return duration;
+    }
+  } catch (e) {
+    console.error("获取服务中页面状态失败:", e);
+  }
+  return null;
+};
+
+// 从服务执行主页获取最终服务时长（服务结束时）
+const getFinalServiceDuration = () => {
+  try {
+    const state = uni.getStorageSync(getServiceExecuteStorageKey());
+    // 检查是否是当前订单的数据
+    if (state && state.orderId == orderId.value && state.serviceDuration) {
+      return state.serviceDuration;
+    }
+  } catch (e) {
+    console.error("获取服务执行状态失败:", e);
+  }
+  return null;
+};
+
+// 计时器
+let timer: ReturnType<typeof setInterval> | null = null;
+
+// 启动实时计时器
+const startTimer = () => {
+  if (timer) return;
+  timer = setInterval(() => {
+    const duration = getServiceDurationFromSecondPage();
+    if (duration !== null) {
+      // 服务中页面有计时状态，更新显示
+      taskData.value.serviceDurationSeconds = duration;
+      taskData.value.serviceDuration = formatDuration(duration);
+    } else {
+      // 服务中页面没有计时状态（服务已结束），停止计时
+      stopTimer();
+      // 尝试从服务执行主页获取最终时长
+      const finalDuration = getFinalServiceDuration();
+      if (finalDuration !== null) {
+        taskData.value.serviceDurationSeconds = finalDuration;
+        taskData.value.serviceDuration = formatDuration(finalDuration);
+      }
+    }
+  }, 1000);
+};
+
+// 停止计时器
+const stopTimer = () => {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+};
+
 // 页面加载
 onLoad((options) => {
   if (options?.id) {
     orderId.value = Number(options.id);
-    fetchTaskDetail();
+    fetchTaskDetail().then(() => {
+      // 如果是服务中状态，启动实时计时
+      if (isServing.value) {
+        startTimer();
+      } else {
+        // 非服务中状态，尝试从服务执行主页获取最终时长
+        const finalDuration = getFinalServiceDuration();
+        if (finalDuration !== null) {
+          taskData.value.serviceDurationSeconds = finalDuration;
+          taskData.value.serviceDuration = formatDuration(finalDuration);
+        }
+      }
+    });
   }
+});
+
+// 页面显示时启动计时器或获取最终时长
+onShow(() => {
+  if (orderId.value && isServing.value) {
+    startTimer();
+  } else if (orderId.value) {
+    // 非服务中状态，尝试获取最终时长
+    const finalDuration = getFinalServiceDuration();
+    if (finalDuration !== null) {
+      taskData.value.serviceDurationSeconds = finalDuration;
+      taskData.value.serviceDuration = formatDuration(finalDuration);
+    }
+  }
+});
+
+// 页面隐藏时停止计时器
+onHide(() => {
+  stopTimer();
+});
+
+// 页面卸载时停止计时器
+onUnmounted(() => {
+  stopTimer();
 });
 
 // 是否有评价信息
@@ -348,6 +494,57 @@ const hasEvaluation = computed(() => !!taskData.value.evaluation);
 
 // 是否有投诉反馈
 const hasFeedback = computed(() => !!taskData.value.feedback);
+
+// 是否是待执行状态（显示"去执行"/"开始执行"）
+const isPending = computed(
+  () => taskData.value.statusCode === 0 || taskData.value.statusCode === 1
+);
+
+// 是否是服务中状态（显示"继续执行"）
+const isServing = computed(() => taskData.value.statusCode === 2);
+
+// 是否是已完成状态（显示"去评价"）
+const isCompleted = computed(() => taskData.value.statusCode === 3);
+
+// 服务中页面是否有计时状态（用于判断是否显示"正在计时中"标签）
+const isTimingActive = computed(() => {
+  if (!isServing.value) return false;
+  const state = uni.getStorageSync(getServiceSecondStorageKey());
+  return !!(state && state.serviceStartTime);
+});
+
+// 按钮文字
+const actionButtonText = computed(() => {
+  // 已完成且未评价：显示"去评价"
+  if (isCompleted.value && !hasEvaluation.value) return "去评价";
+  // 已完成且已评价：不显示按钮（返回空字符串）
+  if (isCompleted.value && hasEvaluation.value) return "";
+  if (isServing.value) return "继续执行";
+  return "去执行"; // 待执行状态
+});
+
+// 按钮样式类
+const actionButtonClass = computed(() => {
+  if (isCompleted.value) return "completed"; // 已完成用橘色
+  if (isServing.value) return "pending"; // 服务中用绿色
+  return "pending"; // 待执行用蓝色
+});
+
+// 服务时长进度百分比
+const durationProgress = computed(() => {
+  const standardMinutes = taskData.value.standardDuration;
+  const actualSeconds = taskData.value.serviceDurationSeconds;
+  if (!standardMinutes || !actualSeconds) return 0;
+  const standardSeconds = standardMinutes * 60;
+  return (actualSeconds / standardSeconds) * 100;
+});
+
+// 服务时长进度颜色
+const durationProgressColor = computed(() => {
+  const progress = durationProgress.value;
+  if (progress >= 80) return "#52c41a"; // 绿色
+  return "#faad14"; // 黄色
+});
 
 // 获取护理方式样式类
 const getNursingModeClass = (type: string) => {
@@ -377,18 +574,182 @@ const previewImage = (urls: string[], current: number) => {
   });
 };
 
+// 当前播放的音频
+const currentAudio = ref<{
+  url: string;
+  context: UniApp.InnerAudioContext | null;
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+}>({
+  url: "",
+  context: null,
+  isPlaying: false,
+  currentTime: 0,
+  duration: 0,
+});
+
+// 统一的按钮点击处理
+const handleActionClick = () => {
+  const orderId = taskData.value.id; // 使用工单ID
+  const agedId = taskData.value.agedId;
+
+  if (!orderId) {
+    uni.showToast({
+      title: "工单ID不能为空",
+      icon: "none",
+    });
+    return;
+  }
+  if (!agedId) {
+    uni.showToast({
+      title: "老人ID不能为空",
+      icon: "none",
+    });
+    return;
+  }
+
+  // 已完成状态：跳转到服务执行页面的评价
+  if (isCompleted.value) {
+    // 设置服务执行状态为第4步（评价）
+    const storageKey = "serviceExecuteState";
+    const savedState = uni.getStorageSync(storageKey);
+
+    // 保存状态，设置当前步骤为4（评价）
+    const state = {
+      orderId: orderId,
+      currentStep: 4, // 评价步骤
+      serviceDuration:
+        savedState?.serviceDuration || taskData.value.serviceDurationSeconds,
+      plannedDuration:
+        savedState?.plannedDuration || taskData.value.standardDuration,
+    };
+    uni.setStorageSync(storageKey, state);
+
+    uni.navigateTo({
+      url: `/pages/serviceExecute/index?orderId=${orderId}&agedId=${agedId}`,
+    });
+    return;
+  }
+
+  // 待执行/服务中状态：跳转到服务执行页面
+  // 检查本地存储的状态
+  const storageKey = "serviceExecuteState";
+  const savedState = uni.getStorageSync(storageKey);
+
+  // 如果有保存的状态且订单ID匹配，使用该状态
+  if (savedState && savedState.orderId == orderId) {
+    // 跳转到服务执行页面，会自动恢复状态
+    uni.navigateTo({
+      url: `/pages/serviceExecute/index?orderId=${orderId}&agedId=${agedId}`,
+    });
+  } else {
+    // 没有保存的状态或订单ID不匹配，清除旧状态并跳转
+    uni.removeStorageSync(storageKey);
+    // 同时清除各步骤的状态
+    uni.removeStorageSync(`serviceStart_${orderId}`);
+    uni.removeStorageSync(`serviceSecond_${orderId}`);
+    uni.removeStorageSync(`serviceEnd_${orderId}`);
+
+    uni.navigateTo({
+      url: `/pages/serviceExecute/index?orderId=${orderId}&agedId=${agedId}`,
+    });
+  }
+};
+
 // 播放音频
-const playAudio = (url: string) => {
+const playAudio = (url: string, duration: number = 0) => {
   if (!url) {
     uni.showToast({ title: "音频地址无效", icon: "none" });
     return;
   }
+
+  // 如果点击的是当前正在播放的音频，则暂停
+  if (currentAudio.value.url === url && currentAudio.value.isPlaying) {
+    currentAudio.value.context?.pause();
+    currentAudio.value.isPlaying = false;
+    return;
+  }
+
+  // 如果点击的是当前暂停的音频，则继续播放
+  if (
+    currentAudio.value.url === url &&
+    !currentAudio.value.isPlaying &&
+    currentAudio.value.context
+  ) {
+    currentAudio.value.context.play();
+    currentAudio.value.isPlaying = true;
+    return;
+  }
+
+  // 停止之前的音频（切换不同音频时）
+  if (currentAudio.value.context) {
+    currentAudio.value.context.stop();
+    currentAudio.value.context.destroy();
+  }
+
+  // 创建新的音频上下文
   const innerAudioContext = uni.createInnerAudioContext();
+  currentAudio.value = {
+    url: url,
+    context: innerAudioContext,
+    isPlaying: true,
+    currentTime: 0,
+    duration: duration,
+  };
+
   innerAudioContext.src = url;
-  innerAudioContext.play();
-  innerAudioContext.onError(() => {
-    uni.showToast({ title: "音频播放失败", icon: "none" });
+
+  // 监听播放进度
+  innerAudioContext.onTimeUpdate(() => {
+    currentAudio.value.currentTime = innerAudioContext.currentTime;
   });
+
+  // 监听播放结束
+  innerAudioContext.onEnded(() => {
+    currentAudio.value.isPlaying = false;
+    currentAudio.value.currentTime = 0;
+  });
+
+  // 监听错误
+  innerAudioContext.onError((err) => {
+    console.error("音频播放错误:", err);
+    uni.showToast({ title: "音频播放失败", icon: "none" });
+    currentAudio.value.isPlaying = false;
+  });
+
+  // 开始播放
+  innerAudioContext.play();
+};
+
+// 获取音频播放进度百分比
+const getAudioProgress = (url: string, duration: number) => {
+  if (currentAudio.value.url !== url) {
+    return 0;
+  }
+  if (!duration) return 0;
+  return (currentAudio.value.currentTime / duration) * 100;
+};
+
+// 获取音频当前时间文本
+const getAudioCurrentTime = (url: string) => {
+  if (currentAudio.value.url !== url) {
+    return "00:00";
+  }
+  const time = Math.floor(currentAudio.value.currentTime);
+  const m = Math.floor(time / 60);
+  const s = time % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+};
+
+// 是否正在播放指定音频
+const isPlayingAudio = (url: string) => {
+  return currentAudio.value.url === url && currentAudio.value.isPlaying;
+};
+
+// 是否是当前音频（包括暂停状态）
+const isCurrentAudio = (url: string) => {
+  return currentAudio.value.url === url;
 };
 </script>
 
@@ -438,15 +799,34 @@ const playAudio = (url: string) => {
     </view>
 
     <!-- 服务时长 -->
-    <view class="duration-bar" v-if="taskData.isTiming">
-      <view class="timing-badge">
+    <view class="duration-bar" v-if="isPending || isServing || isCompleted">
+      <!-- 操作按钮（待执行/服务中/已完成未评价） -->
+      <view
+        v-if="actionButtonText"
+        class="action-btn"
+        :class="actionButtonClass"
+        @click="handleActionClick"
+      >
+        <text>{{ actionButtonText }}</text>
+      </view>
+
+      <!-- 服务中且有计时状态：显示正在计时标签 -->
+      <view v-if="isServing && isTimingActive" class="timing-badge">
         <text class="dot"></text>
         <text>正在计时中</text>
       </view>
+
+      <!-- 服务时长显示 -->
       <view class="duration-content">
         <view class="duration-row">
-          <text class="duration-label">已服务时长</text>
-          <text class="duration-value">{{ taskData.serviceDuration }}</text>
+          <text class="duration-label">{{
+            isCompleted ? "服务时长" : "已服务时长"
+          }}</text>
+          <text
+            class="duration-value"
+            :style="isCompleted ? { color: durationProgressColor } : {}"
+            >{{ taskData.serviceDuration }}</text
+          >
           <text class="duration-standard"
             >/ {{ taskData.standardDuration }} min（标准服务时长）</text
           >
@@ -525,15 +905,31 @@ const playAudio = (url: string) => {
                 class="audio-player"
                 v-for="(audio, aIndex) in item.audioList"
                 :key="aIndex"
-                @click="playAudio(audio.url)"
+                @click="playAudio(audio.url, audio.duration)"
+                :class="{
+                  playing: isPlayingAudio(audio.url),
+                  paused:
+                    isCurrentAudio(audio.url) && !isPlayingAudio(audio.url),
+                }"
               >
                 <view class="play-btn">
-                  <text class="play-icon">▶</text>
+                  <text class="play-icon">{{
+                    isPlayingAudio(audio.url) ? "❚❚" : "▶"
+                  }}</text>
                 </view>
                 <view class="progress-bar">
-                  <view class="progress-fill"></view>
+                  <view
+                    class="progress-fill"
+                    :style="{
+                      width: getAudioProgress(audio.url, audio.duration) + '%',
+                    }"
+                  ></view>
                 </view>
-                <text class="audio-time">00:00/{{ audio.durationText }}</text>
+                <text class="audio-time"
+                  >{{ getAudioCurrentTime(audio.url) }}/{{
+                    audio.durationText
+                  }}</text
+                >
               </view>
             </view>
           </view>
@@ -738,6 +1134,33 @@ const playAudio = (url: string) => {
     align-items: center;
     gap: 16rpx;
     margin-bottom: 20rpx;
+
+    .action-btn {
+      padding: 14rpx 80rpx;
+      border-radius: 20rpx;
+      font-size: 28rpx;
+      font-weight: 500;
+      color: #fff;
+
+      &.pending {
+        background: #1677ff;
+      }
+
+      &.serving {
+        background: #52c41a;
+      }
+
+      &.completed {
+        background: linear-gradient(135deg, #fa8c16, #d46b08);
+      }
+    }
+
+    .serving-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20rpx;
+    }
 
     .timing-badge {
       display: flex;
@@ -1125,6 +1548,26 @@ const playAudio = (url: string) => {
               width: fit-content;
               min-width: 400rpx;
 
+              &.playing {
+                background-color: #e6f7ff;
+
+                .play-btn {
+                  background: linear-gradient(135deg, #1890ff, #096dd9);
+                }
+
+                .progress-fill {
+                  background: linear-gradient(90deg, #1890ff, #69c0ff);
+                }
+              }
+
+              &.paused {
+                background-color: #fff7e6;
+
+                .play-btn {
+                  background: linear-gradient(135deg, #faad14, #d48806);
+                }
+              }
+
               .play-btn {
                 width: 56rpx;
                 height: 56rpx;
@@ -1149,7 +1592,6 @@ const playAudio = (url: string) => {
                 overflow: hidden;
 
                 .progress-fill {
-                  width: 0%;
                   height: 100%;
                   background: linear-gradient(90deg, #52c41a, #95de64);
                   border-radius: 3rpx;

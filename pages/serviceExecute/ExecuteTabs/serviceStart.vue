@@ -261,7 +261,7 @@ const handleComplete = async () => {
       signLong: location?.longitude || 0,
       signLat: location?.latitude || 0,
       signAddressName: location?.address || "",
-      signAddress: location?.address || "",
+      // signAddress 不传，避免后端显示重复
     };
 
     // 只在有值时才添加可选参数
