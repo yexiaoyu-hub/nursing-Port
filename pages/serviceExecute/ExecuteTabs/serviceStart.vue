@@ -261,7 +261,8 @@ const handleComplete = async () => {
       signLong: location?.longitude || 0,
       signLat: location?.latitude || 0,
       signAddressName: location?.address || "",
-      // signAddress 不传，避免后端显示重复
+      // 记录服务开始时间，用于多端同步计时
+      signTime: formatDateTime(new Date()),
     };
 
     // 只在有值时才添加可选参数
@@ -343,6 +344,17 @@ const removePhoto = (index: number) => {
 
 // 录音完成回调
 const handleRecorded = (filePath: string) => {};
+
+// 格式化日期时间
+const formatDateTime = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
 </script>
 
 <template>

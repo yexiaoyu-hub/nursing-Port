@@ -1,11 +1,12 @@
 // 服务执行页面
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from "vue";
-import { onHide } from "@dcloudio/uni-app";
+import { onHide, onShow } from "@dcloudio/uni-app";
 import ServiceStartTab from "./ExecuteTabs/serviceStart.vue";
 import ServiceSecondTab from "./ExecuteTabs/serviceSecond.vue";
 import ServiceEndTab from "./ExecuteTabs/serviceEnd.vue";
 import ServiceEvaluationTab from "./ExecuteTabs/serviceEvaluation.vue";
+import { getServiceOrderWithProjectsAll } from "@/api/service/order.js";
 
 // 页面参数
 const orderId = ref("");
@@ -39,14 +40,66 @@ onMounted(async () => {
   agedId.value = options.agedId || "";
   agedName.value = options.agedName || "";
 
-  // 恢复保存的状态
-  await restoreState();
+  // 从服务端获取最新状态
+  await fetchOrderStatus();
+});
+
+// 页面显示时刷新状态（处理从其他页面返回的情况）
+onShow(async () => {
+  if (orderId.value) {
+    await fetchOrderStatus();
+  }
 });
 
 // 页面隐藏时保存状态
 onHide(() => {
   saveState();
 });
+
+// 从服务端获取工单状态
+const fetchOrderStatus = async () => {
+  if (!orderId.value) return;
+  
+  try {
+    const res = await getServiceOrderWithProjectsAll(orderId.value);
+    const orderData = res?.data || res;
+    
+    if (orderData) {
+      // 根据工单状态设置当前步骤
+      // status: 1=待执行, 2=执行中, 3=已完成
+      // 同时检查签到记录来确定具体步骤
+      const signs = orderData.signs || [];
+      const hasStartSign = signs.some((s: any) => s.signType === 1);
+      const hasDoingSign = signs.some((s: any) => s.signType === 2);
+      const hasEndSign = signs.some((s: any) => s.signType === 3);
+      
+      if (hasEndSign) {
+        // 有结束签到，说明服务已完成，跳到评价步骤
+        currentStep.value = 4;
+      } else if (hasDoingSign) {
+        // 有进行中签到，跳到结束步骤
+        currentStep.value = 3;
+      } else if (hasStartSign) {
+        // 有开始签到，跳到服务中步骤
+        currentStep.value = 2;
+      } else {
+        // 没有签到记录，从第一步开始
+        currentStep.value = 1;
+      }
+      
+      // 保存到本地
+      saveState();
+      
+      // 等待 DOM 更新
+      await nextTick();
+      isStateRestored.value = true;
+    }
+  } catch (error) {
+    console.error("获取工单状态失败:", error);
+    // 如果服务端获取失败，尝试从本地恢复
+    await restoreState();
+  }
+};
 
 // 保存状态到本地
 const saveState = () => {

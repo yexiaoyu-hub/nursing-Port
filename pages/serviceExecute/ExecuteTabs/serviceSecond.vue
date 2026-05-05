@@ -11,6 +11,7 @@ import {
   createServiceHealth,
   createServiceSignDoing,
 } from "@/api/service/service";
+import { getServiceOrderWithProjectsAll } from "@/api/service/order.js";
 
 const emit = defineEmits<{
   (e: "next-step", duration?: number, planned?: number): void;
@@ -209,6 +210,35 @@ const plannedDuration = ref(0); // 计划时长（分钟），从服务计划获
 const serviceStartTime = ref<number | null>(null); // 服务开始时间戳
 const currentDuration = ref(0); // 当前显示的服务时长（秒）
 let timerInterval: any = null;
+
+// 从服务端获取服务开始时间（用于多端同步）
+const fetchServiceStartTime = async () => {
+  if (!props.orderId) return;
+
+  try {
+    const res = await getServiceOrderWithProjectsAll(props.orderId);
+    const orderData = res?.data || res;
+
+    if (orderData && orderData.signs) {
+      // 找到开始签到记录（signType = 1）
+      const startSign = orderData.signs.find((s: any) => s.signType === 1);
+      if (startSign) {
+        // 使用签到时间作为服务开始时间
+        const startTime = startSign.signTime || startSign.createTime;
+        if (startTime) {
+          serviceStartTime.value = new Date(startTime).getTime();
+          // 启动计时器
+          startTimer();
+          return true;
+        }
+      }
+    }
+    return false;
+  } catch (error) {
+    console.error("获取服务开始时间失败:", error);
+    return false;
+  }
+};
 
 // 格式化时间显示
 const formatDuration = (seconds: number) => {
@@ -509,18 +539,21 @@ const handleTransferTask = () => {
 };
 
 // 生命周期
-onMounted(() => {
-  // 恢复状态（包括计时状态）
-  restoreState();
+onMounted(async () => {
+  // 优先从服务端获取开始时间（多端同步）
+  const hasServerStartTime = await fetchServiceStartTime();
 
-  // 如果没有开始时间，设置当前时间为开始时间
-  if (!serviceStartTime.value) {
-    serviceStartTime.value = Date.now();
-    saveState();
+  // 如果服务端没有，尝试从本地恢复
+  if (!hasServerStartTime) {
+    restoreState();
+
+    // 如果本地也没有，设置当前时间为开始时间
+    if (!serviceStartTime.value) {
+      serviceStartTime.value = Date.now();
+      saveState();
+      startTimer();
+    }
   }
-
-  // 启动计时器
-  startTimer();
 
   // 自动获取定位
   setTimeout(() => {
@@ -539,9 +572,9 @@ onHide(() => {
   saveState();
 });
 
-// 页面显示时恢复状态
-onShow(() => {
-  restoreState();
+// 页面显示时从服务端刷新开始时间（多端同步）
+onShow(async () => {
+  await fetchServiceStartTime();
 });
 </script>
 
