@@ -1,5 +1,6 @@
 import request from '@/utils/request.js'
 
+
 // 创建服务签到记录（通用），生成轨迹
 // signType: 1=开始, 2=服务中, 3=结束
 export const createServiceSign = (data) => {
