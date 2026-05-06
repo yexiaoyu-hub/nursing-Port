@@ -78,36 +78,67 @@ const hasEnteredServiceEnd = () => {
 // 从服务端获取工单状态
 const fetchOrderStatus = async () => {
   if (!orderId.value) return;
-  
+
   try {
     const res = await getServiceOrderWithProjectsAll(orderId.value);
     const orderData = res?.data || res;
-    
+
     if (orderData) {
+      // 获取服务端签到记录
+      const signs = orderData.signs || [];
+      const hasStartSign = signs.some((s: any) => s.signType === 1);
+      const hasDoingSign = signs.some((s: any) => s.signType === 2);
+      const hasEndSign = signs.some((s: any) => s.signType === 3);
+
+      // 获取服务端健康采集记录
+      const healths = orderData.healths || [];
+      const hasHealthRecord = healths.length > 0;
+
       // 优先根据本地存储的标记判断步骤（更精确）
-      // 标记优先级：评价流程 > 服务结束流程 > 工单状态
-      
-      // 1. 检查是否已进入评价流程（第4步）
+      // 标记优先级：本地评价流程 > 本地服务结束流程 > 服务端结束签到 > 服务端健康采集 > 工单状态
+
+      // 1. 检查是否已进入评价流程（第4步）- 本地标记
       if (hasEnteredEvaluation()) {
         currentStep.value = 4;
-      } 
-      // 2. 检查是否已进入服务结束页流程（第3步）
+      }
+      // 2. 检查服务端是否有结束签到记录（signType = 3）
+      else if (hasEndSign) {
+        // 其他设备已完成结束签到，同步进入第4步（评价页）
+        currentStep.value = 4;
+        // 同步设置本地标记，避免后续重复判断
+        const evaluationKey = `serviceEvaluation_${orderId.value}`;
+        uni.setStorageSync(evaluationKey, {
+          entered: true,
+          timestamp: Date.now(),
+          synced: true,
+        });
+      }
+      // 3. 检查是否已进入服务结束页流程（第3步）- 本地标记
       else if (hasEnteredServiceEnd()) {
         currentStep.value = 3;
       }
-      // 3. 根据工单状态判断
+      // 4. 检查服务端是否有健康采集记录（其他设备已点击服务完成）
+      else if (hasHealthRecord) {
+        // 其他设备已提交健康采集数据，同步进入第3步（服务结束页）
+        currentStep.value = 3;
+        // 同步设置本地标记，避免后续重复判断
+        const serviceEndKey = `serviceEnd_${orderId.value}`;
+        uni.setStorageSync(serviceEndKey, {
+          entered: true,
+          timestamp: Date.now(),
+          synced: true,
+        });
+      }
+      // 5. 根据工单状态判断
       else {
         const orderStatus = orderData.status;
-        
+
         if (orderStatus === 3) {
           // 工单已完成，但未进入服务结束页流程，说明是异常情况
           // 默认进入第3步
           currentStep.value = 3;
         } else if (orderStatus === 2) {
           // 工单执行中，检查是否有开始签到
-          const signs = orderData.signs || [];
-          const hasStartSign = signs.some((s: any) => s.signType === 1);
-          
           if (hasStartSign) {
             // 有开始签到，进入第2步（服务中）
             currentStep.value = 2;
@@ -123,17 +154,17 @@ const fetchOrderStatus = async () => {
           currentStep.value = 1;
         }
       }
-      
+
       // 从本地存储恢复服务时长和计划时长（如果存在）
       const state = uni.getStorageSync(STORAGE_KEY);
       if (state && state.orderId == orderId.value) {
         serviceDuration.value = state.serviceDuration || 0;
         plannedDuration.value = state.plannedDuration || 40;
       }
-      
+
       // 保存到本地
       saveState();
-      
+
       // 等待 DOM 更新
       await nextTick();
       isStateRestored.value = true;

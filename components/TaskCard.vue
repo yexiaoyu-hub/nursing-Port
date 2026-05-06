@@ -80,9 +80,18 @@ const getDurationLabel = (status) => {
         <text class="time-label">{{ getTimeLabel(task.status) }}</text>
         <text class="time-value">{{ task.executeTime }}</text>
       </view>
-      <view class="duration-info">
-        <text class="duration-label">{{ getDurationLabel(task.status) }}</text>
-        <text class="duration-value">{{ task.totalDuration }} 分钟</text>
+      <view class="duration-compare">
+        <text class="duration-compare-label">{{
+          getDurationLabel(task.status)
+        }}</text>
+        <text class="duration-compare-value"
+          >{{
+            task.status === "completed"
+              ? task.totalDuration + " / " + (task.orderSerTimes || 0)
+              : task.orderSerTimes || 0
+          }}
+          分钟</text
+        >
       </view>
     </view>
   </view>
@@ -183,22 +192,44 @@ const getDurationLabel = (status) => {
     padding-top: 20rpx;
     border-top: 1rpx solid #f5f5f5;
 
-    .time-info,
-    .duration-info {
+    .time-info {
       display: flex;
       align-items: center;
 
-      .time-label,
-      .duration-label {
+      .time-label {
         font-size: 24rpx;
         color: #999;
         margin-right: 10rpx;
       }
 
-      .time-value,
-      .duration-value {
+      .time-value {
         font-size: 24rpx;
         color: #666;
+      }
+    }
+
+    .duration-compare {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+
+      .duration-compare-label {
+        font-size: 24rpx;
+        color: #999;
+        margin-right: 6rpx;
+      }
+
+      .duration-compare-value {
+        font-size: 24rpx;
+        color: #666;
+        margin-right: 10rpx;
+      }
+
+      .duration-compare-separator {
+        font-size: 24rpx;
+        color: #999;
+        margin: 0 10rpx;
       }
     }
   }

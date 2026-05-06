@@ -10,6 +10,7 @@ interface ElderlyItem {
   statusColor: string;
   disability: string;
   photo?: string;
+  phone?: string;
 }
 
 const props = defineProps<{
@@ -22,11 +23,40 @@ const emit = defineEmits<{
 }>();
 
 const handleButtonClick = (buttonText: string) => {
-  emit("button-click", buttonText, props.item.id);
+  if (buttonText === "一键拨号") {
+    handlePhoneCall();
+  } else {
+    emit("button-click", buttonText, props.item.id);
+  }
 };
 
 const handleCardClick = () => {
   emit("card-click", props.item.id);
+};
+
+// 一键拨号
+const handlePhoneCall = () => {
+  const phone = props.item.phone;
+  if (!phone) {
+    uni.showToast({
+      title: "暂无联系电话",
+      icon: "none",
+    });
+    return;
+  }
+  uni.makePhoneCall({
+    phoneNumber: phone,
+    success: () => {
+      console.log("拨打电话成功");
+    },
+    fail: (err) => {
+      console.error("拨打电话失败:", err);
+      uni.showToast({
+        title: "拨打电话失败",
+        icon: "none",
+      });
+    },
+  });
 };
 </script>
 

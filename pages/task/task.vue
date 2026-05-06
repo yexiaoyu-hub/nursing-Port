@@ -228,6 +228,8 @@ const fetchTaskList = async () => {
           totalDuration: isCompleted
             ? item.serTime || 0
             : item.orderSerTimes || 0,
+          // 服务总时长（标准时长）
+          orderSerTimes: item.orderSerTimes || 0,
           // 保留原始数据供详情页使用
           rawData: item,
         };

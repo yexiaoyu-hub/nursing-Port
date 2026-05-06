@@ -50,6 +50,11 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // 老人电话
+  phone: {
+    type: String,
+    default: "",
+  },
 });
 
 const emit = defineEmits(["startExecute"]);
@@ -57,6 +62,30 @@ const emit = defineEmits(["startExecute"]);
 // 处理开始执行点击
 const handleStartClick = () => {
   emit("startExecute", { orderId: props.orderId, agedId: props.agedId });
+};
+
+// 一键拨号
+const handlePhoneCall = () => {
+  if (!props.phone) {
+    uni.showToast({
+      title: "暂无联系电话",
+      icon: "none",
+    });
+    return;
+  }
+  uni.makePhoneCall({
+    phoneNumber: props.phone,
+    success: () => {
+      console.log("拨打电话成功");
+    },
+    fail: (err) => {
+      console.error("拨打电话失败:", err);
+      uni.showToast({
+        title: "拨打电话失败",
+        icon: "none",
+      });
+    },
+  });
 };
 
 // 是否为机构护理
@@ -214,8 +243,17 @@ const statusInfo = computed(() => {
       <view
         style="margin: 10rpx 0 30rpx 0; height: 2rpx; background-color: #e7e7e9"
       ></view>
-      <view class="button" :class="{ 'button-single': isInstitutionCare || !buttonText }">
-        <button v-if="!isInstitutionCare" class="buttonmin">一键拨号</button>
+      <view
+        class="button"
+        :class="{ 'button-single': isInstitutionCare || !buttonText }"
+      >
+        <button
+          v-if="!isInstitutionCare"
+          class="buttonmin"
+          @click="handlePhoneCall"
+        >
+          一键拨号
+        </button>
         <button
           v-if="buttonText"
           class="buttonmin"

@@ -25,7 +25,7 @@ const locationPickerRef = ref<any>(null);
 const checkInStatus = ref<"idle" | "loading" | "success">("idle");
 
 // 服务项目
-const serviceItems = ref<string[]>([]);
+const serviceItems = ref<{ id: string | number; name: string }[]>([]);
 
 // 页面加载时自动获取定位
 onMounted(() => {
@@ -53,12 +53,18 @@ const fetchServicePlan = async () => {
     }
 
     // 提取所有服务项目名称
-    const items: string[] = [];
+    const items: { id: string | number; name: string; sort?: number }[] = [];
     data.forEach((group: any) => {
+      // 获取分组分类
+      const groupSort = group.sort || group.type || 1;
       if (group.projects && Array.isArray(group.projects)) {
         group.projects.forEach((project: any) => {
           if (project.projectName) {
-            items.push(project.projectName);
+            items.push({
+              id: project.projectId || project.id || "",
+              name: project.projectName,
+              sort: project.sort || groupSort
+            });
           }
         });
       }
@@ -68,6 +74,16 @@ const fetchServicePlan = async () => {
   } catch (error) {
     console.error("获取服务计划失败:", error);
   }
+};
+
+// 跳转到 SOP 页面
+const goToSOP = (item: { id: string | number; name: string; sort?: number }) => {
+  let url = `/pages/serviceExecute/otherEntrances/serviceSOP?projectId=${item.id}&projectName=${encodeURIComponent(item.name)}`;
+  // 如果有分类信息，传递给SOP页面
+  if (item.sort) {
+    url += `&sort=${item.sort}`;
+  }
+  uni.navigateTo({ url });
 };
 
 // 存储键名
@@ -90,7 +106,9 @@ const restoreState = () => {
     if (state) {
       checkInStatus.value = state.checkInStatus || "idle";
       // 过滤掉 blob URL（刷新后 blob URL 会失效）
-      photos.value = (state.photos || []).filter((photo) => !photo.startsWith("blob:"));
+      photos.value = (state.photos || []).filter(
+        (photo) => !photo.startsWith("blob:")
+      );
     }
   } catch (e) {
     console.error("恢复状态失败:", e);
@@ -391,8 +409,9 @@ const handleTransferTask = () => {
           v-for="(item, index) in serviceItems"
           :key="index"
           class="service-tag"
+          @click="goToSOP(item)"
         >
-          <text>{{ item }}</text>
+          <text>{{ item.name }}</text>
         </view>
       </view>
     </view>

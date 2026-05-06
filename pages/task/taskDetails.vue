@@ -343,7 +343,7 @@ const fetchServiceProcess = async (orderId: number) => {
         if (startTime) {
           let timestamp: number;
           // 如果是字符串且不是纯数字，当作日期字符串解析
-          if (typeof startTime === 'string' && isNaN(Number(startTime))) {
+          if (typeof startTime === "string" && isNaN(Number(startTime))) {
             timestamp = new Date(startTime).getTime();
           } else {
             // 转换为数字
@@ -412,7 +412,9 @@ const serverServiceStartTime = ref<number | null>(null);
 const getServiceDurationFromSecondPage = () => {
   // 优先使用从服务端获取的开始时间（多端同步）
   if (serverServiceStartTime.value) {
-    const duration = Math.floor((Date.now() - serverServiceStartTime.value) / 1000);
+    const duration = Math.floor(
+      (Date.now() - serverServiceStartTime.value) / 1000
+    );
     return duration;
   }
 
@@ -1019,7 +1021,7 @@ const isCurrentAudio = (url: string) => {
       <view class="section-title">健康采集数据</view>
       <view class="health-list">
         <view class="health-item">
-          <text class="health-label">血压</text>
+          <text class="health-label">血压（高压/低压）</text>
           <view class="health-value-box">
             <text
               v-if="

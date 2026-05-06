@@ -114,7 +114,8 @@ const fetchServiceOrderData = async () => {
             const detailRes = await getServiceOrderWithProjectsAll(order.id);
             const detailData = detailRes.data || detailRes;
             // 检查是否有评价信息
-            const isEvaluated = detailData &&
+            const isEvaluated =
+              detailData &&
               detailData.pingjias &&
               Array.isArray(detailData.pingjias) &&
               detailData.pingjias.length > 0;
@@ -128,7 +129,7 @@ const fetchServiceOrderData = async () => {
         const evalStatusList = await Promise.all(orderEvalPromises);
         // 转换为 Map 方便查询
         const evalStatusMap = {};
-        evalStatusList.forEach(item => {
+        evalStatusList.forEach((item) => {
           evalStatusMap[item.orderId] = item.isEvaluated;
         });
 
@@ -185,6 +186,7 @@ const fetchServiceOrderData = async () => {
               actualDuration,
               plannedDuration,
               isEvaluated: evalStatusMap[order.id] || false,
+              phone: order.tel || order.changhuTel || "",
             };
           });
       } else {
@@ -334,6 +336,7 @@ const handleStartExecute = ({ orderId, agedId }) => {
                 :orderId="item.orderId"
                 :agedId="item.agedId"
                 :isEvaluated="item.isEvaluated"
+                :phone="item.phone"
                 @startExecute="handleStartExecute"
               >
                 <template #name

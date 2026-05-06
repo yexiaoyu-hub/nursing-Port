@@ -56,3 +56,21 @@ export const createServiceEvaluation = (data) => {
     })
 }
 
+// 获取服务操作标准分页列表
+export const getServiceSopPage = (params) => {
+    return request({
+        url: '/changhu/changhu-service-project-sop/page',
+        method: 'get',
+        params
+    })
+}
+
+// 获取服务操作标准详情
+export const getServiceSopDetail = (id) => {
+    return request({
+        url: '/changhu/changhu-service-project-sop/get',
+        method: 'get',
+        params: { id }
+    })
+}
+

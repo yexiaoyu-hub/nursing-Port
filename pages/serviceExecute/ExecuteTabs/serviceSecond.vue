@@ -51,7 +51,7 @@ const handleCheckIn = () => {
 };
 
 // ============ 服务项目相关 ============
-const serviceItems = ref<string[]>([]);
+const serviceItems = ref<{ id: string | number; name: string }[]>([]);
 
 // 存储键名
 const getStorageKey = () => `serviceSecond_${props.orderId}`;
@@ -121,13 +121,19 @@ const fetchServicePlan = async () => {
     }
 
     // 提取所有服务项目名称和总时长
-    const items: string[] = [];
+    const items: { id: string | number; name: string; sort?: number }[] = [];
     let totalDuration = 0;
     data.forEach((group: any) => {
+      // 获取分组分类
+      const groupSort = group.sort || group.type || 1;
       if (group.projects && Array.isArray(group.projects)) {
         group.projects.forEach((project: any) => {
           if (project.projectName) {
-            items.push(project.projectName);
+            items.push({
+              id: project.projectId || project.id || "",
+              name: project.projectName,
+              sort: project.sort || groupSort,
+            });
           }
           // 累加服务时长（分钟）
           if (project.projectTime) {
@@ -145,6 +151,18 @@ const fetchServicePlan = async () => {
   } catch (error) {
     console.error("获取服务计划失败:", error);
   }
+};
+
+// 跳转到 SOP 页面
+const goToSOP = (item: { id: string | number; name: string; sort?: number }) => {
+  let url = `/pages/serviceExecute/otherEntrances/serviceSOP?projectId=${
+    item.id
+  }&projectName=${encodeURIComponent(item.name)}`;
+  // 如果有分类信息，传递给SOP页面
+  if (item.sort) {
+    url += `&sort=${item.sort}`;
+  }
+  uni.navigateTo({ url });
 };
 
 // ============ 图片上传相关 ============
@@ -229,9 +247,18 @@ const fetchServiceStartTime = async () => {
           serviceStartTime.value = new Date(startTime).getTime();
           // 启动计时器
           startTimer();
-          return true;
         }
       }
+
+      // 检查是否有服务中签到记录（signType = 2）
+      const doingSign = orderData.signs.find((s: any) => s.signType === 2);
+      if (doingSign) {
+        // 已存在服务中签到记录，更新本地状态
+        checkInStatus.value = "success";
+        isCheckInSubmitted.value = true;
+      }
+
+      return !!startSign;
     }
     return false;
   } catch (error) {
@@ -714,8 +741,9 @@ onShow(async () => {
           v-for="(item, index) in serviceItems"
           :key="index"
           class="service-tag"
+          @click="goToSOP(item)"
         >
-          <text>{{ item }}</text>
+          <text>{{ item.name }}</text>
         </view>
       </view>
     </view>

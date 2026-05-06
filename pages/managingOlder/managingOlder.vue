@@ -24,10 +24,12 @@ const filterOptions = ref({
   ],
   disability: [
     { label: "全部", value: "" },
-    { label: "轻度", value: "轻度" },
-    { label: "中度", value: "中度" },
-    { label: "重度", value: "重度" },
-    { label: "完全失能", value: "完全失能" },
+    { label: "基本正常", value: "0" },
+    { label: "轻度失能", value: "1" },
+    { label: "中度失能", value: "2" },
+    { label: "重度失能Ⅰ级", value: "3" },
+    { label: "重度失能Ⅱ级", value: "4" },
+    { label: "重度失能Ⅲ级", value: "5" },
   ],
   careType: [
     { label: "全部", value: "" },
@@ -105,10 +107,10 @@ const filteredList = computed(() => {
       (item) => item.gender === selectedFilters.value.gender
     );
   }
-  // 失能筛选
+  // 失能筛选 - 使用 shinengLevelid 字段匹配
   if (selectedFilters.value.disability) {
     result = result.filter(
-      (item) => item.disability === selectedFilters.value.disability
+      (item) => String(item.shinengLevelid) === selectedFilters.value.disability
     );
   }
   // 护理方式筛选
@@ -167,6 +169,8 @@ const fetchElderlyList = async (isLoadMore = false) => {
         statusColor: getStatusColor(status),
         disability: getDisabilityText(item.shinengLevelid),
         photo: item.photo,
+        phone: item.tel || item.changhuTel || "",
+        shinengLevelid: item.shinengLevelid,
       };
     });
 
@@ -327,7 +331,7 @@ onReachBottom(() => {
             class="filter-item"
             v-for="item in filterList"
             :key="item.id"
-            :class="{ active: item.active }"
+            :class="{ active: item.active, selected: selectedFilters[item.key as keyof typeof selectedFilters] !== '' }"
             @click="switchFilter(item.id)"
           >
             <text>{{ item.name }}</text>
@@ -445,6 +449,11 @@ onReachBottom(() => {
 
     &.active {
       color: #1677ff;
+    }
+
+    &.selected {
+      color: #1677ff;
+      font-weight: 500;
     }
   }
 }
