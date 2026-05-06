@@ -80,9 +80,10 @@ const mapMarkers = computed(() => {
 // 获取定位
 const getLocation = (): Promise<boolean> => {
   return new Promise((resolve, reject) => {
-    uni.getLocation({
-      type: "wgs84",
-      success: async (res) => {
+    // 构建定位参数
+    const locationOptions: any = {
+      altitude: false,
+      success: async (res: any) => {
         if (
           !res.longitude ||
           !res.latitude ||
@@ -116,10 +117,22 @@ const getLocation = (): Promise<boolean> => {
           resolve(true);
         }
       },
-      fail: (err) => {
+      fail: (err: any) => {
         reject(new Error("定位失败，请检查权限"));
       },
-    });
+    };
+    
+    // #ifdef H5
+    locationOptions.type = "wgs84";
+    // #endif
+    // #ifndef H5
+    // 小程序/APP 使用 gcj02 和高精度参数
+    locationOptions.type = "gcj02";
+    locationOptions.highAccuracyExpireTime = 3000;
+    locationOptions.isHighAccuracy = true;
+    // #endif
+    
+    uni.getLocation(locationOptions);
   });
 };
 

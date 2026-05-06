@@ -13,7 +13,8 @@ const baseURL = 'https://dev.zhengyishuzi.com/admin-api'
 export const uploadFileService = (filePath, name = 'file', directory = 'service/record') => {
     return new Promise((resolve, reject) => {
         // 如果是 File 对象（H5环境），使用 XMLHttpRequest
-        if (filePath instanceof File) {
+        // 注意：File 对象只在 H5 环境存在，小程序中需要判断是否存在
+        if (typeof File !== 'undefined' && filePath instanceof File) {
             const formData = new FormData();
             formData.append(name, filePath);
             formData.append('directory', directory);

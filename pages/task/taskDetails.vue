@@ -174,7 +174,7 @@ const getNursingType = (type: string) => {
 
 // 格式化时长（秒转时分秒）
 const formatDuration = (seconds: number) => {
-  if (!seconds) return "00:00:00";
+  if (!seconds || seconds < 0) return "00:00:00";
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
@@ -336,6 +336,28 @@ const fetchServiceProcess = async (orderId: number) => {
     }
 
     if (data && data.signs && Array.isArray(data.signs)) {
+      // 查找开始签到记录（signType = 1），用于多端同步计时
+      const startSign = data.signs.find((s: any) => s.signType === 1);
+      if (startSign) {
+        const startTime = startSign.signTime || startSign.createTime;
+        if (startTime) {
+          let timestamp: number;
+          // 如果是字符串且不是纯数字，当作日期字符串解析
+          if (typeof startTime === 'string' && isNaN(Number(startTime))) {
+            timestamp = new Date(startTime).getTime();
+          } else {
+            // 转换为数字
+            let ts = Number(startTime);
+            // 如果是秒级时间戳（10位），转换为毫秒
+            if (String(ts).length === 10) {
+              ts = ts * 1000;
+            }
+            timestamp = ts;
+          }
+          serverServiceStartTime.value = timestamp;
+        }
+      }
+
       // 处理签到记录
       const processList = data.signs.map((sign: any, index: number) => {
         // 处理照片
@@ -383,12 +405,21 @@ const getServiceSecondStorageKey = () => `serviceSecond_${orderId.value}`;
 // 服务执行主页的存储键（包含最终时长）
 const getServiceExecuteStorageKey = () => `serviceExecuteState`;
 
-// 从服务中页面获取当前服务时长
+// 从服务端获取的服务开始时间（用于多端同步）
+const serverServiceStartTime = ref<number | null>(null);
+
+// 从服务中页面获取当前服务时长（支持多端同步）
 const getServiceDurationFromSecondPage = () => {
+  // 优先使用从服务端获取的开始时间（多端同步）
+  if (serverServiceStartTime.value) {
+    const duration = Math.floor((Date.now() - serverServiceStartTime.value) / 1000);
+    return duration;
+  }
+
+  // 降级：尝试从本地存储获取（当前设备开始的服务）
   try {
     const state = uni.getStorageSync(getServiceSecondStorageKey());
     if (state && state.serviceStartTime) {
-      // 根据服务中页面的开始时间计算当前时长
       const duration = Math.floor((Date.now() - state.serviceStartTime) / 1000);
       return duration;
     }
@@ -418,6 +449,16 @@ let timer: ReturnType<typeof setInterval> | null = null;
 // 启动实时计时器
 const startTimer = () => {
   if (timer) return;
+  // 如果步骤 >= 3，说明已进入服务结束页，不启动计时器，直接显示最终数据
+  const currentStep = getCurrentServiceStep();
+  if (currentStep >= 3) {
+    const finalDuration = getFinalServiceDuration();
+    if (finalDuration !== null) {
+      taskData.value.serviceDurationSeconds = finalDuration;
+      taskData.value.serviceDuration = formatDuration(finalDuration);
+    }
+    return;
+  }
   timer = setInterval(() => {
     const duration = getServiceDurationFromSecondPage();
     if (duration !== null) {
@@ -495,7 +536,7 @@ const hasEvaluation = computed(() => !!taskData.value.evaluation);
 // 是否有投诉反馈
 const hasFeedback = computed(() => !!taskData.value.feedback);
 
-// 是否是待执行状态（显示"去执行"/"开始执行"）
+// 是否是待执行状态（显示"去执行"）
 const isPending = computed(
   () => taskData.value.statusCode === 0 || taskData.value.statusCode === 1
 );
@@ -506,28 +547,64 @@ const isServing = computed(() => taskData.value.statusCode === 2);
 // 是否是已完成状态（显示"去评价"）
 const isCompleted = computed(() => taskData.value.statusCode === 3);
 
+// 获取当前服务执行步骤
+const getCurrentServiceStep = () => {
+  try {
+    const state = uni.getStorageSync(getServiceExecuteStorageKey());
+    if (state && state.orderId == orderId.value) {
+      return state.currentStep || 1;
+    }
+  } catch (e) {
+    console.error("获取服务执行步骤失败:", e);
+  }
+  return 1;
+};
+
 // 服务中页面是否有计时状态（用于判断是否显示"正在计时中"标签）
+// 当步骤到达第3步（服务结束）及以上时，不再显示计时
 const isTimingActive = computed(() => {
   if (!isServing.value) return false;
+  // 如果步骤 >= 3，说明已进入服务结束页，不再显示计时
+  const currentStep = getCurrentServiceStep();
+  if (currentStep >= 3) return false;
+
+  // 优先检查服务端是否有开始时间（多端同步）
+  if (serverServiceStartTime.value) return true;
+
+  // 降级：检查本地存储
   const state = uni.getStorageSync(getServiceSecondStorageKey());
   return !!(state && state.serviceStartTime);
 });
 
+// 检查是否已进入评价流程
+const hasEnteredEvaluation = computed(() => {
+  const evaluationKey = `serviceEvaluation_${taskData.value.id}`;
+  const evaluationState = uni.getStorageSync(evaluationKey);
+  return !!(evaluationState && evaluationState.entered);
+});
+
 // 按钮文字
 const actionButtonText = computed(() => {
-  // 已完成且未评价：显示"去评价"
-  if (isCompleted.value && !hasEvaluation.value) return "去评价";
-  // 已完成且已评价：不显示按钮（返回空字符串）
-  if (isCompleted.value && hasEvaluation.value) return "";
+  // 已完成状态
+  if (isCompleted.value) {
+    // 已评价：不显示按钮
+    if (hasEvaluation.value) return "";
+    // 已进入评价流程（点击了服务结束页的下一步）：显示"去评价"
+    if (hasEnteredEvaluation.value) return "去评价";
+    // 已完成但未进入评价流程：显示"继续执行"（继续到服务结束页）
+    return "继续执行";
+  }
   if (isServing.value) return "继续执行";
   return "去执行"; // 待执行状态
 });
 
 // 按钮样式类
 const actionButtonClass = computed(() => {
-  if (isCompleted.value) return "completed"; // 已完成用橘色
-  if (isServing.value) return "pending"; // 服务中用绿色
-  return "pending"; // 待执行用蓝色
+  // 已完成且已进入评价流程（显示"去评价"）用橘色
+  if (isCompleted.value && hasEnteredEvaluation.value) return "completed";
+  // 服务中用绿色，其他情况（包括已完成但未进入评价流程）用蓝色
+  if (isServing.value) return "pending";
+  return "pending";
 });
 
 // 服务时长进度百分比

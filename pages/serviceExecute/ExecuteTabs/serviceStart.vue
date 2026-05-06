@@ -196,14 +196,14 @@ const handleComplete = async () => {
     });
     return;
   }
-  // 检查是否已上传录音
-  if (!voiceRecorderRef.value?.audioFilePath) {
-    uni.showToast({
-      title: "请先上传录音",
-      icon: "none",
-    });
-    return;
-  }
+  // // 检查是否已上传录音
+  // if (!voiceRecorderRef.value?.audioFilePath) {
+  //   uni.showToast({
+  //     title: "请先上传录音",
+  //     icon: "none",
+  //   });
+  //   return;
+  // }
 
   uni.showLoading({ title: "提交中..." });
   try {

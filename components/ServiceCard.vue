@@ -45,6 +45,11 @@ const props = defineProps({
     type: [String, Number],
     default: "",
   },
+  // 是否已评价
+  isEvaluated: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits(["startExecute"]);
@@ -94,11 +99,27 @@ const statusMap = {
   4: { text: "已取消", class: "status-gray" },
 };
 
+// 检查是否已进入评价流程
+const hasEnteredEvaluation = computed(() => {
+  const evaluationKey = `serviceEvaluation_${props.orderId}`;
+  const evaluationState = uni.getStorageSync(evaluationKey);
+  return !!(evaluationState && evaluationState.entered);
+});
+
 // 按钮文字
 const buttonText = computed(() => {
-  // 如果状态是已完成(3)，显示"去评价"
+  // 如果状态是已完成(3)
   if (props.status === 3) {
-    return "去评价";
+    // 如果已评价，不显示按钮
+    if (props.isEvaluated) {
+      return "";
+    }
+    // 如果已进入评价流程（点击了服务结束页的下一步），显示"去评价"
+    if (hasEnteredEvaluation.value) {
+      return "去评价";
+    }
+    // 已完成但未进入评价流程，显示"继续执行"（继续到服务结束页）
+    return "继续执行";
   }
   // 如果状态是执行中(2)，显示"继续执行"
   if (props.status === 2) {
@@ -110,8 +131,8 @@ const buttonText = computed(() => {
 
 // 按钮样式类
 const buttonClass = computed(() => {
-  // 已完成状态使用橘色
-  if (props.status === 3) {
+  // 已完成状态且已进入评价流程（显示"去评价"）使用橘色
+  if (props.status === 3 && hasEnteredEvaluation.value) {
     return "buttonmin-orange";
   }
   // 其他情况使用默认蓝色
@@ -193,9 +214,10 @@ const statusInfo = computed(() => {
       <view
         style="margin: 10rpx 0 30rpx 0; height: 2rpx; background-color: #e7e7e9"
       ></view>
-      <view class="button" :class="{ 'button-single': isInstitutionCare }">
+      <view class="button" :class="{ 'button-single': isInstitutionCare || !buttonText }">
         <button v-if="!isInstitutionCare" class="buttonmin">一键拨号</button>
         <button
+          v-if="buttonText"
           class="buttonmin"
           :class="[{ 'buttonmin-full': isInstitutionCare }, buttonClass]"
           @click="handleStartClick"

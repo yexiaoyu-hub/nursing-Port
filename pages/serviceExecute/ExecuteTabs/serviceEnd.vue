@@ -192,14 +192,14 @@ const handleNext = async () => {
     return;
   }
 
-  // 检查是否已录音
-  if (!voiceRecorderRef.value?.audioFilePath) {
-    uni.showToast({
-      title: "请先上传录音",
-      icon: "none",
-    });
-    return;
-  }
+  // // 检查是否已录音
+  // if (!voiceRecorderRef.value?.audioFilePath) {
+  //   uni.showToast({
+  //     title: "请先上传录音",
+  //     icon: "none",
+  //   });
+  //   return;
+  // }
 
   uni.showLoading({ title: "提交中..." });
   try {
@@ -275,6 +275,10 @@ const handleNext = async () => {
 
     // 提交成功，清除状态
     clearState();
+
+    // 标记已进入评价流程
+    const evaluationKey = `serviceEvaluation_${props.orderId}`;
+    uni.setStorageSync(evaluationKey, { entered: true, timestamp: Date.now() });
 
     emit("next-step");
 
@@ -403,7 +407,7 @@ const handleTransferTask = () => {
     <view style="height: 160rpx"></view>
 
     <!-- 下一步按钮 - 固定在底部 -->
-    <view class="btn-next" @click="handleNext"> 下一步 </view>
+    <view class="btn-next" @click="handleNext"> 结束签到 </view>
   </view>
 </template>
 

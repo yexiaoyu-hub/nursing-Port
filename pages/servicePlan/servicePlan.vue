@@ -20,6 +20,7 @@ const elderlyInfo = ref({
   statusColor: "green",
   nursingMode: "",
   disability: "",
+  disabilityCode: "", // 失能等级代码
   avatar: "",
 });
 
@@ -82,6 +83,7 @@ const fetchElderlyInfo = async (agedId: string) => {
             ? "blue"
             : "orange",
         disability: getDisabilityText(data.shinengLevelid),
+        disabilityCode: data.shinengLevelid || "",
         avatar: data.photo || "",
       };
     }
@@ -233,6 +235,7 @@ const startService = async () => {
             statffId: parseInt(staffId),
             orderAddress: elderlyInfo.value.bedNo,
             orderHuiliType: getHuiliTypeCode(elderlyInfo.value.nursingMode),
+            shinengLevelid: elderlyInfo.value.disabilityCode, // 失能等级
             orderDispatchDate: formatDateTime(new Date()),
             orderSerTimes: selectedProjects.reduce(
               (sum, p) => sum + (p.orderPlanSerTimes || 0),

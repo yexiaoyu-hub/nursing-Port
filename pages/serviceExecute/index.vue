@@ -47,6 +47,11 @@ onMounted(async () => {
 // 页面显示时刷新状态（处理从其他页面返回的情况）
 onShow(async () => {
   if (orderId.value) {
+    // 如果已经在服务结束页(第3步)或评价页(第4步)，保持当前步骤
+    if (currentStep.value >= 3) {
+      // 只更新数据，不改变步骤
+      return;
+    }
     await fetchOrderStatus();
   }
 });
@@ -55,6 +60,20 @@ onShow(async () => {
 onHide(() => {
   saveState();
 });
+
+// 检查是否已进入评价流程（第4步）
+const hasEnteredEvaluation = () => {
+  const evaluationKey = `serviceEvaluation_${orderId.value}`;
+  const evaluationState = uni.getStorageSync(evaluationKey);
+  return !!(evaluationState && evaluationState.entered);
+};
+
+// 检查是否已进入服务结束页流程（第3步）
+const hasEnteredServiceEnd = () => {
+  const serviceEndKey = `serviceEnd_${orderId.value}`;
+  const serviceEndState = uni.getStorageSync(serviceEndKey);
+  return !!(serviceEndState && serviceEndState.entered);
+};
 
 // 从服务端获取工单状态
 const fetchOrderStatus = async () => {
@@ -65,26 +84,51 @@ const fetchOrderStatus = async () => {
     const orderData = res?.data || res;
     
     if (orderData) {
-      // 根据工单状态设置当前步骤
-      // status: 1=待执行, 2=执行中, 3=已完成
-      // 同时检查签到记录来确定具体步骤
-      const signs = orderData.signs || [];
-      const hasStartSign = signs.some((s: any) => s.signType === 1);
-      const hasDoingSign = signs.some((s: any) => s.signType === 2);
-      const hasEndSign = signs.some((s: any) => s.signType === 3);
+      // 优先根据本地存储的标记判断步骤（更精确）
+      // 标记优先级：评价流程 > 服务结束流程 > 工单状态
       
-      if (hasEndSign) {
-        // 有结束签到，说明服务已完成，跳到评价步骤
+      // 1. 检查是否已进入评价流程（第4步）
+      if (hasEnteredEvaluation()) {
         currentStep.value = 4;
-      } else if (hasDoingSign) {
-        // 有进行中签到，跳到结束步骤
+      } 
+      // 2. 检查是否已进入服务结束页流程（第3步）
+      else if (hasEnteredServiceEnd()) {
         currentStep.value = 3;
-      } else if (hasStartSign) {
-        // 有开始签到，跳到服务中步骤
-        currentStep.value = 2;
-      } else {
-        // 没有签到记录，从第一步开始
-        currentStep.value = 1;
+      }
+      // 3. 根据工单状态判断
+      else {
+        const orderStatus = orderData.status;
+        
+        if (orderStatus === 3) {
+          // 工单已完成，但未进入服务结束页流程，说明是异常情况
+          // 默认进入第3步
+          currentStep.value = 3;
+        } else if (orderStatus === 2) {
+          // 工单执行中，检查是否有开始签到
+          const signs = orderData.signs || [];
+          const hasStartSign = signs.some((s: any) => s.signType === 1);
+          
+          if (hasStartSign) {
+            // 有开始签到，进入第2步（服务中）
+            currentStep.value = 2;
+          } else {
+            // 没有签到记录，从第1步开始
+            currentStep.value = 1;
+          }
+        } else if (orderStatus === 1) {
+          // 工单待执行，从第1步开始
+          currentStep.value = 1;
+        } else {
+          // 默认从第1步开始
+          currentStep.value = 1;
+        }
+      }
+      
+      // 从本地存储恢复服务时长和计划时长（如果存在）
+      const state = uni.getStorageSync(STORAGE_KEY);
+      if (state && state.orderId == orderId.value) {
+        serviceDuration.value = state.serviceDuration || 0;
+        plannedDuration.value = state.plannedDuration || 40;
       }
       
       // 保存到本地
@@ -144,12 +188,12 @@ const clearState = () => {
 // 下一步
 const nextStep = (duration?: number, planned?: number) => {
   // 保存计划时长
-  if (planned !== undefined) {
+  if (planned !== undefined && planned !== null) {
     plannedDuration.value = planned;
   }
 
   // 保存服务时长（从第二步传递过来）
-  if (duration !== undefined) {
+  if (duration !== undefined && duration !== null) {
     serviceDuration.value = duration;
   }
 

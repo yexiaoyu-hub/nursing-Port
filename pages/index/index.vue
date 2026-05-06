@@ -6,6 +6,7 @@ import { pageGuard } from "@/utils/routerGuard.js";
 import { getServiceOrderService } from "@/api/index.js";
 import { getDictDataSimpleList } from "@/api/dict/dict.js";
 import { getUserProfileService } from "@/api/user.js";
+import { getServiceOrderWithProjectsAll } from "@/api/service/order.js";
 
 // 字典数据缓存
 const dictDataMap = ref({});
@@ -107,12 +108,34 @@ const fetchServiceOrderData = async () => {
         Array.isArray(data.orderList) &&
         data.orderList.length > 0
       ) {
+        // 获取每个订单的评价状态（用于过滤已评价订单）
+        const orderEvalPromises = data.orderList.map(async (order) => {
+          try {
+            const detailRes = await getServiceOrderWithProjectsAll(order.id);
+            const detailData = detailRes.data || detailRes;
+            // 检查是否有评价信息
+            const isEvaluated = detailData &&
+              detailData.pingjias &&
+              Array.isArray(detailData.pingjias) &&
+              detailData.pingjias.length > 0;
+            return { orderId: order.id, isEvaluated };
+          } catch (e) {
+            // 如果获取详情失败，默认未评价
+            return { orderId: order.id, isEvaluated: false };
+          }
+        });
+
+        const evalStatusList = await Promise.all(orderEvalPromises);
+        // 转换为 Map 方便查询
+        const evalStatusMap = {};
+        evalStatusList.forEach(item => {
+          evalStatusMap[item.orderId] = item.isEvaluated;
+        });
+
         cardfrom.value = data.orderList
           .filter((order) => {
-            // 过滤掉已评价的订单
-            const evaluationKey = `serviceEvaluation_${order.id}`;
-            const evaluationData = uni.getStorageSync(evaluationKey);
-            if (evaluationData && evaluationData.isEvaluated) {
+            // 过滤掉已评价的订单（已完成且已评价）
+            if (order.status === 3 && evalStatusMap[order.id]) {
               return false;
             }
             return true;
@@ -161,6 +184,7 @@ const fetchServiceOrderData = async () => {
               agedId: order.agedId,
               actualDuration,
               plannedDuration,
+              isEvaluated: evalStatusMap[order.id] || false,
             };
           });
       } else {
@@ -178,12 +202,14 @@ const fetchServiceOrderData = async () => {
 
 // 获取服务方式列表
 const getServiceTypeText = (type) => {
-  return dictDataMap.value["changhu_nursing_type"]?.[type] || "";
+  if (!type) return "——";
+  return dictDataMap.value["changhu_nursing_type"]?.[type] || type;
 };
 
 // 获取失能等级列表
 const getDisabilityLevelText = (level) => {
-  return dictDataMap.value["changhu_sndj"]?.[level] || "";
+  if (!level) return "——";
+  return dictDataMap.value["changhu_sndj"]?.[level] || level;
 };
 
 // 处理开始执行按钮点击
@@ -307,6 +333,7 @@ const handleStartExecute = ({ orderId, agedId }) => {
                 :status="item.status"
                 :orderId="item.orderId"
                 :agedId="item.agedId"
+                :isEvaluated="item.isEvaluated"
                 @startExecute="handleStartExecute"
               >
                 <template #name

@@ -38,6 +38,7 @@ const saveState = () => {
     rating: rating.value,
     comment: comment.value,
     isEvaluated: isEvaluated.value,
+    entered: true,
   });
 };
 

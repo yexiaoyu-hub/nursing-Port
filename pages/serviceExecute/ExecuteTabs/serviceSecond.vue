@@ -279,7 +279,7 @@ const handleCheckInSubmit = async () => {
   // 检查是否已打卡
   if (checkInStatus.value !== "success") {
     uni.showToast({
-      title: "请先完成服务中打卡",
+      title: "请先完成打卡",
       icon: "none",
     });
     return;
@@ -291,14 +291,14 @@ const handleCheckInSubmit = async () => {
     });
     return;
   }
-  // 检查是否已上传录音
-  if (!voiceRecorderRef.value?.audioFilePath) {
-    uni.showToast({
-      title: "请先上传录音",
-      icon: "none",
-    });
-    return;
-  }
+  // // 检查是否已上传录音
+  // if (!voiceRecorderRef.value?.audioFilePath) {
+  //   uni.showToast({
+  //     title: "请先上传录音",
+  //     icon: "none",
+  //   });
+  //   return;
+  // }
 
   // 提交数据（不跳转页面）
   await submitCheckInData();
@@ -445,7 +445,7 @@ const handleComplete = async () => {
   // 检查是否已提交签到数据
   if (!isCheckInSubmitted.value) {
     uni.showToast({
-      title: "请先提交服务中签到",
+      title: "至少提交一次打卡签到",
       icon: "none",
     });
     return;
@@ -504,6 +504,10 @@ const submitHealthDataAndNavigate = async () => {
 
     // 停止计时
     stopTimer();
+
+    // 标记已进入服务结束页流程
+    const serviceEndKey = `serviceEnd_${props.orderId}`;
+    uni.setStorageSync(serviceEndKey, { entered: true, timestamp: Date.now() });
 
     // 传递服务时长和计划时长到下一步
     emit("next-step", currentDuration.value, plannedDuration.value);
