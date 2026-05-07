@@ -75,6 +75,26 @@ const currentTempFilter = computed(() => {
   return tempFilters.value[filter.key as keyof typeof tempFilters.value] || "";
 });
 
+// 获取筛选的显示标签
+const getFilterLabel = (key: keyof typeof selectedFilters.value) => {
+  const value = selectedFilters.value[key];
+  if (!value) return "";
+  const options = filterOptions.value[key];
+  const option = options.find((opt) => opt.value === value);
+  return option ? option.label : "";
+};
+
+// 获取筛选项的显示名称（用于标题栏）
+const getFilterDisplayName = (item: (typeof filterList.value)[0]) => {
+  const selectedValue =
+    selectedFilters.value[item.key as keyof typeof selectedFilters.value];
+  if (!selectedValue) return item.name;
+  const options =
+    filterOptions.value[item.key as keyof typeof filterOptions.value];
+  const option = options.find((opt) => opt.value === selectedValue);
+  return option ? option.label : item.name;
+};
+
 // 选择当前筛选
 const selectCurrentFilter = (value: string) => {
   if (!currentFilter.value) return;
@@ -334,7 +354,7 @@ onReachBottom(() => {
             :class="{ active: item.active, selected: selectedFilters[item.key as keyof typeof selectedFilters] !== '' }"
             @click="switchFilter(item.id)"
           >
-            <text>{{ item.name }}</text>
+            <text class="filter-name">{{ getFilterDisplayName(item) }}</text>
             <text class="arrow-down">▼</text>
           </view>
         </view>
@@ -441,10 +461,19 @@ onReachBottom(() => {
     align-items: center;
     font-size: 28rpx;
     color: #666;
+    max-width: 200rpx;
+
+    .filter-name {
+      max-width: 160rpx;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
     .arrow-down {
       font-size: 20rpx;
       margin-left: 8rpx;
+      flex-shrink: 0;
     }
 
     &.active {

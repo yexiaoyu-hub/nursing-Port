@@ -114,6 +114,18 @@
 			"style": {
 				"navigationBarTitleText": "服务操作标准"
 			}
+		},
+		{
+			"path": "pages/assessment/assessmentList",
+			"style": {
+				"navigationBarTitleText": "评估报告"
+			}
+		},
+		{
+			"path": "pages/assessment/assessmentDetail",
+			"style": {
+				"navigationBarTitleText": "评估报告详情"
+			}
 		}
 	],
 	"globalStyle": {

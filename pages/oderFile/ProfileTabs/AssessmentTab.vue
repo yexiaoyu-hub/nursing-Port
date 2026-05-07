@@ -1,40 +1,82 @@
 // 评估标签页组件
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
+import {
+  getPingguReportList,
+  getPingguReportDetail,
+} from "@/api/older/older.js";
+
+const props = defineProps<{
+  elderlyId: number | null;
+}>();
 
 // 失能评估信息（最新数据）
 const assessmentInfo = ref({
-  time: "2026-01-10 09:30",
-  updateTime: "2026-01-10 10:00",
-  organization: "正一养老评估中心",
-  evaluator: "王评估师",
-  conclusion: "失能：中度",
+  time: "",
+  organization: "",
+  evaluator: "",
+  conclusion: "",
+  pgNextDate: "",
 });
 
 // 评估报告记录
-const assessmentRecords = ref([
-  {
-    id: 1,
-    date: "2026-01-10",
-    title: "失能评估",
-    description: "结论稳定，建议 6 个月复评",
-    level: "中度",
-  },
-  {
-    id: 2,
-    date: "2025-07-08",
-    title: "失能评估",
-    description: "ADL 轻微下降，持续观察",
-    level: "中度",
-  },
-  {
-    id: 3,
-    date: "2024-12-20",
-    title: "失能评估",
-    description: "入院初评",
-    level: "轻度",
-  },
-]);
+const assessmentRecords = ref<any[]>([]);
+
+// 获取评估报告数据
+const fetchAssessmentData = async () => {
+  if (!props.elderlyId) return;
+  try {
+    // 先获取评估报告列表
+    const listRes = await getPingguReportList({
+      agedId: props.elderlyId,
+      pageNo: 1,
+      pageSize: 10,
+    });
+    const listData = listRes?.data || listRes;
+    const records = listData?.list || [];
+
+    if (records.length > 0) {
+      // 获取最新一条评估报告的详情
+      const latestReport = records[0];
+      const detailRes = await getPingguReportDetail(latestReport.id);
+      const data = detailRes?.data || detailRes;
+
+      if (data) {
+        // 更新最新评估信息
+        assessmentInfo.value = {
+          time: data.pgDate || "",
+          organization: data.pgJigouName || "",
+          evaluator: data.pgRen || "",
+          conclusion: getDisabilityLevelText(data.pgChanghuEndLevel),
+          pgNextDate: data.pgNextDate || "",
+        };
+        // 更新评估记录列表
+        assessmentRecords.value = records.map((item: any) => ({
+          id: item.id,
+          date: item.pgDate,
+          title: "失能评估",
+          description: item.pgHulituijian || "",
+          level: getDisabilityLevelText(item.pgChanghuEndLevel),
+        }));
+      }
+    }
+  } catch (error) {
+    console.error("获取评估报告失败:", error);
+  }
+};
+
+// 获取失能等级文本
+const getDisabilityLevelText = (level: number | string): string => {
+  const levelMap: Record<string, string> = {
+    "0": "基本正常",
+    "1": "轻度失能",
+    "2": "中度失能",
+    "3": "重度失能Ⅰ级",
+    "4": "重度失能Ⅱ级",
+    "5": "重度失能Ⅲ级",
+  };
+  return levelMap[String(level)] || "-";
+};
 
 // 按评估时间排序（最新的在前）
 const sortedRecords = computed(() => {
@@ -43,9 +85,21 @@ const sortedRecords = computed(() => {
   });
 });
 
+// 显示的评估记录（最多3条）
+const displayRecords = computed(() => {
+  return sortedRecords.value.slice(0, 3);
+});
+
+// 查看更多报告
+const viewMoreReports = () => {
+  if (!props.elderlyId) return;
+  uni.navigateTo({
+    url: `/pages/assessment/assessmentList?agedId=${props.elderlyId}`,
+  });
+};
+
 // 评估提醒
 const reminderEnabled = ref(false);
-const nextAssessmentDate = ref("2026-07-10");
 
 // 切换提醒
 const toggleReminder = () => {
@@ -54,29 +108,39 @@ const toggleReminder = () => {
 
 // 查看评估报告详情
 const viewReportDetail = (item: any) => {
-  uni.showToast({
-    title: `查看评估报告: ${item.title}`,
-    icon: "none",
+  uni.navigateTo({
+    url: `/pages/assessment/assessmentDetail?id=${item.id}`,
   });
-  // TODO: 跳转到评估报告详情页
-  // uni.navigateTo({
-  //   url: `/pages/assessment/detail?id=${item.id}`,
-  // });
 };
 
 // 获取等级标签样式
 const getLevelClass = (level: string) => {
   switch (level) {
-    case "轻度":
+    case "基本正常":
+      return "level-normal";
+    case "轻度失能":
       return "level-light";
-    case "中度":
+    case "中度失能":
       return "level-medium";
-    case "重度":
+    case "重度失能Ⅰ级":
+    case "重度失能Ⅱ级":
+    case "重度失能Ⅲ级":
       return "level-severe";
     default:
-      return "level-light";
+      return "level-normal";
   }
 };
+
+// 监听elderlyId变化，获取评估数据
+watch(
+  () => props.elderlyId,
+  (newId) => {
+    if (newId) {
+      fetchAssessmentData();
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
@@ -85,11 +149,10 @@ const getLevelClass = (level: string) => {
     <view class="section">
       <view class="section-header">
         <view class="section-title">失能评估信息</view>
-        <view class="update-time">更新时间：{{ assessmentInfo.updateTime }}</view>
       </view>
       <view class="info-list">
         <view class="info-item">
-          <text class="label">评估时间</text>
+          <text class="label">评估日期</text>
           <text class="value">{{ assessmentInfo.time }}</text>
         </view>
         <view class="info-item">
@@ -104,6 +167,10 @@ const getLevelClass = (level: string) => {
           <text class="label">评估结论</text>
           <text class="value">{{ assessmentInfo.conclusion }}</text>
         </view>
+        <view class="info-item">
+          <text class="label">下次评估日期</text>
+          <text class="value">{{ assessmentInfo.pgNextDate }}</text>
+        </view>
       </view>
     </view>
 
@@ -113,14 +180,14 @@ const getLevelClass = (level: string) => {
       <view class="timeline">
         <view
           class="timeline-item"
-          v-for="(item, index) in sortedRecords"
+          v-for="(item, index) in displayRecords"
           :key="item.id"
         >
           <view class="timeline-line">
             <view class="timeline-dot"></view>
             <view
               class="timeline-connector"
-              v-if="index < sortedRecords.length - 1"
+              v-if="index < displayRecords.length - 1"
             ></view>
           </view>
           <view class="timeline-content">
@@ -142,16 +209,16 @@ const getLevelClass = (level: string) => {
           </view>
         </view>
       </view>
+      <!-- 查看更多报告按钮 -->
+      <view class="view-more-btn" @click="viewMoreReports">
+        <text>查看更多报告</text>
+      </view>
     </view>
 
     <!-- 评估提醒 -->
     <view class="section">
       <view class="section-title">评估提醒</view>
       <view class="reminder-list">
-        <view class="reminder-item">
-          <text class="label">下次评估时间</text>
-          <text class="value">{{ nextAssessmentDate }}</text>
-        </view>
         <view class="reminder-item switch-item">
           <text class="label">提醒通知</text>
           <switch
@@ -189,11 +256,6 @@ const getLevelClass = (level: string) => {
         font-size: 26rpx;
         color: #999;
         margin-bottom: 0;
-      }
-
-      .update-time {
-        font-size: 24rpx;
-        color: #999;
       }
     }
 
@@ -256,6 +318,34 @@ const getLevelClass = (level: string) => {
 
   .timeline-section {
     padding-left: 20rpx;
+
+    .view-more-btn {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20rpx 40rpx;
+      margin: 30rpx auto 10rpx;
+      background: linear-gradient(135deg, #1677ff 0%, #4096ff 100%);
+      border-radius: 20rpx;
+      color: #fff;
+      font-size: 28rpx;
+      font-weight: 500;
+      box-shadow: 0 4rpx 16rpx rgba(22, 119, 255, 0.3);
+      transition: all 0.3s ease;
+      width: fit-content;
+      min-width: 280rpx;
+
+      &:active {
+        transform: scale(0.98);
+        box-shadow: 0 2rpx 8rpx rgba(22, 119, 255, 0.2);
+      }
+
+      &:hover {
+        .arrow {
+          transform: translateX(4rpx);
+        }
+      }
+    }
   }
 
   .timeline {
@@ -326,10 +416,14 @@ const getLevelClass = (level: string) => {
               }
 
               .btn-view-small {
-                padding: 4rpx 16rpx;
+                width: 60rpx;
+                height: 40rpx;
+                line-height: 40rpx;
+                text-align: center;
+                padding: 5rpx 16rpx;
                 background-color: #1677ff;
                 color: #fff;
-                font-size: 22rpx;
+                font-size: 24rpx;
                 border-radius: 6rpx;
               }
             }
@@ -339,6 +433,11 @@ const getLevelClass = (level: string) => {
               padding: 4rpx 12rpx;
               border-radius: 8rpx;
               flex-shrink: 0;
+
+              &.level-normal {
+                background-color: #e6f4ff;
+                color: #1677ff;
+              }
 
               &.level-light {
                 background-color: #d0f9d9;

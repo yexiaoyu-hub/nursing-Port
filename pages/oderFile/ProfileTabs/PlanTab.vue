@@ -1,20 +1,14 @@
 // 计划标签页组件
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, watch } from "vue";
 import {
   getServicePlanByAged,
   getServicePlanChangeLog,
 } from "@/api/older/older.js";
 
-// 页面加载时
-onMounted(async () => {
-  await fetchServicePlan(); // 获取服务计划
-  await fetchPlanChangeLog(); // 获取变更日志（需要在服务计划之后）
-});
-
 // Props 接收老人ID
 const props = defineProps<{
-  agedId: string;
+  elderlyId: number | null;
 }>();
 
 // 服务计划数据（按类型分组）
@@ -23,10 +17,10 @@ const loading = ref(false);
 
 // 获取服务计划数据
 const fetchServicePlan = async () => {
-  if (!props.agedId) return;
+  if (!props.elderlyId) return;
   loading.value = true;
   try {
-    const res = await getServicePlanByAged(props.agedId);
+    const res = await getServicePlanByAged(props.elderlyId);
     // 处理接口返回数据结构
     const data = res?.data || res || [];
     servicePlanData.value = Array.isArray(data) ? data : [];
@@ -59,29 +53,12 @@ const allServiceProjects = computed(() => {
   return projects;
 });
 
-// 计算已完成进度
-const completedProgress = computed(() => {
-  const total = allServiceProjects.value.length;
-  const completed = allServiceProjects.value.filter(
-    (item) => (item.completedCount || 0) > 0
-  ).length;
-  return {
-    completed,
-    total: total || 1, // 避免除以0
-  };
-});
-const progressPercent = computed(() => {
-  return Math.round(
-    (completedProgress.value.completed / completedProgress.value.total) * 100
-  );
-});
-
 // 计划调整（变更日志）
 const planAdjustments = ref<any[]>([]);
 
 // 获取计划变更日志
 const fetchPlanChangeLog = async () => {
-  if (!props.agedId) return;
+  if (!props.elderlyId) return;
   try {
     const res = await getServicePlanChangeLog({
       size: 100,
@@ -95,6 +72,12 @@ const fetchPlanChangeLog = async () => {
     const currentProjectIds = new Set(
       allServiceProjects.value.map((p: any) => p.projectId).filter(Boolean)
     );
+
+    // 如果没有 projectIds，直接返回
+    if (currentProjectIds.size === 0) {
+      planAdjustments.value = [];
+      return;
+    }
 
     // 过滤并格式化变更日志
     const filteredList = list.filter((item: any) => {
@@ -161,6 +144,18 @@ const getPinlvUnit = (pinlv: string) => {
   };
   return unitMap[pinlv] || "其他";
 };
+
+// 监听elderlyId变化，获取数据
+watch(
+  () => props.elderlyId,
+  async (newId) => {
+    if (newId) {
+      await fetchServicePlan();
+      await fetchPlanChangeLog();
+    }
+  },
+  { immediate: true }
+);
 
 // 计划执行记录（无顺延状态，统一展示完成，去掉最后一个）
 const executionRecords = ref([
@@ -238,24 +233,6 @@ const getAdjustmentTypeClass = (type: string) => {
       </view>
       <view class="empty-state" v-else-if="!loading">
         <text>暂无服务计划</text>
-      </view>
-    </view>
-
-    <!-- 已完成 -->
-    <view class="section">
-      <view class="progress-header">
-        <text class="section-title">已完成</text>
-        <text class="progress-text">
-          {{ completedProgress.completed }}/{{ completedProgress.total }} ({{
-            progressPercent
-          }}%)
-        </text>
-      </view>
-      <view class="progress-bar">
-        <view
-          class="progress-fill"
-          :style="{ width: progressPercent + '%' }"
-        ></view>
       </view>
     </view>
 
@@ -384,37 +361,6 @@ const getAdjustmentTypeClass = (type: string) => {
     }
   }
 
-  .progress-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16rpx;
-
-    .section-title {
-      margin-bottom: 0;
-    }
-
-    .progress-text {
-      font-size: 28rpx;
-      color: #666;
-    }
-  }
-
-  .progress-bar {
-    width: 100%;
-    height: 15rpx;
-    background-color: #e8e8e8;
-    border-radius: 6rpx;
-    overflow: hidden;
-
-    .progress-fill {
-      height: 100%;
-      background: #1677ff;
-      border-radius: 6rpx;
-      transition: width 0.3s ease;
-    }
-  }
-
   .timeline-section {
     padding-left: 20rpx;
   }
@@ -507,46 +453,45 @@ const getAdjustmentTypeClass = (type: string) => {
       }
     }
   }
+}
+.record-list {
+  .record-card {
+    background-color: #fff;
+    border: 2rpx solid #eaeaea;
+    border-radius: 16rpx;
+    padding: 24rpx;
+    margin-bottom: 16rpx;
+    box-shadow: 2rpx 5rpx 15rpx rgba(0, 0, 0, 0.06);
 
-  .record-list {
-    .record-card {
-      background-color: #fff;
-      border: 2rpx solid #eaeaea;
-      border-radius: 16rpx;
-      padding: 24rpx;
-      margin-bottom: 16rpx;
-      box-shadow: 2rpx 5rpx 15rpx rgba(0, 0, 0, 0.06);
+    &:last-child {
+      margin-bottom: 0;
+    }
 
-      &:last-child {
-        margin-bottom: 0;
+    .record-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10rpx;
+
+      .record-name {
+        font-size: 30rpx;
+        font-weight: 600;
+        color: #333;
       }
 
-      .record-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10rpx;
-
-        .record-name {
-          font-size: 30rpx;
-          font-weight: 600;
-          color: #333;
-        }
-
-        .record-status {
-          font-size: 24rpx;
-          color: #52c41a;
-          background-color: #d0f9d9;
-          padding: 4rpx 12rpx;
-          border-radius: 8rpx;
-        }
+      .record-status {
+        font-size: 24rpx;
+        color: #52c41a;
+        background-color: #d0f9d9;
+        padding: 4rpx 12rpx;
+        border-radius: 8rpx;
       }
+    }
 
-      .record-info {
-        .info-text {
-          font-size: 24rpx;
-          color: #999;
-        }
+    .record-info {
+      .info-text {
+        font-size: 24rpx;
+        color: #999;
       }
     }
   }

@@ -46,11 +46,13 @@ const healthData = ref({
   shousuoya: null,
   xuetang: null,
   xinlv: null,
-  tiwen: null,
+  xueyang: null,
   // 基本信息中的健康字段
   yichuan: "",
   guomin: "",
   huanbing: "",
+  // 监测时间
+  monitorTime: "",
 });
 
 // 健康指标（从接口数据动态生成）
@@ -78,62 +80,62 @@ const healthIndicators = ref([
   },
   {
     id: 4,
-    name: "体温",
+    name: "血氧",
     value: "--",
-    unit: "℃",
+    unit: "SpO2",
     trend: [],
   },
 ]);
 
 // 用药记录
-const medications = ref([
-  {
-    id: 1,
-    name: "氨氯地平片",
-    dosage: "剂量 5mg · 口服 1次/日 · 时间 早餐后",
-    status: "在用",
-  },
-  {
-    id: 2,
-    name: "阿司匹林肠溶片",
-    dosage: "剂量 100mg · 口服 1次/日 · 时间 晚餐后",
-    status: "在用",
-  },
-]);
+// const medications = ref([
+//   {
+//     id: 1,
+//     name: "氨氯地平片",
+//     dosage: "剂量 5mg · 口服 1次/日 · 时间 早餐后",
+//     status: "在用",
+//   },
+//   {
+//     id: 2,
+//     name: "阿司匹林肠溶片",
+//     dosage: "剂量 100mg · 口服 1次/日 · 时间 晚餐后",
+//     status: "在用",
+//   },
+// ]);
 
 // 检查报告
-const reports = ref([
-  {
-    id: 1,
-    name: "血常规检查",
-    date: "2026-01-18",
-  },
-  {
-    id: 2,
-    name: "心电图检查",
-    date: "2025-12-26",
-  },
-]);
+// const reports = ref([
+//   {
+//     id: 1,
+//     name: "血常规检查",
+//     date: "2026-01-18",
+//   },
+//   {
+//     id: 2,
+//     name: "心电图检查",
+//     date: "2025-12-26",
+//   },
+// ]);
 
 // 护理评估
-const nursingAssessments = ref([
-  {
-    id: 1,
-    date: "2026-01-20",
-    title: "定期评估",
-    content: "生命体征平稳，继续现有护理与监测频次。",
-    status: "稳定",
-    statusType: "normal",
-  },
-  {
-    id: 2,
-    date: "2025-12-20",
-    title: "定期评估",
-    content: "夜间起床次数增多，建议加强巡视与跌倒风险提示。",
-    status: "需关注",
-    statusType: "warning",
-  },
-]);
+// const nursingAssessments = ref([
+//   {
+//     id: 1,
+//     date: "2026-01-20",
+//     title: "定期评估",
+//     content: "生命体征平稳，继续现有护理与监测频次。",
+//     status: "稳定",
+//     statusType: "normal",
+//   },
+//   {
+//     id: 2,
+//     date: "2025-12-20",
+//     title: "定期评估",
+//     content: "夜间起床次数增多，建议加强巡视与跌倒风险提示。",
+//     status: "需关注",
+//     statusType: "warning",
+//   },
+// ]);
 
 // 获取健康信息
 const fetchHealthData = async () => {
@@ -147,10 +149,11 @@ const fetchHealthData = async () => {
         shousuoya: data.shousuoya,
         xuetang: data.xuetang,
         xinlv: data.xinlv,
-        tiwen: data.tiwen,
+        xueyang: data.xueyang,
         yichuan: data.yichuan,
         guomin: data.guomin,
         huanbing: data.huanbing,
+        monitorTime: data.monitorTime,
       };
       // 更新健康指标显示
       updateHealthIndicators();
@@ -175,9 +178,9 @@ const updateHealthIndicators = () => {
   if (data.xinlv !== null && data.xinlv !== undefined) {
     healthIndicators.value[2].value = String(data.xinlv);
   }
-  // 体温
-  if (data.tiwen !== null && data.tiwen !== undefined) {
-    healthIndicators.value[3].value = String(data.tiwen);
+  // 血氧
+  if (data.xueyang !== null && data.xueyang !== undefined) {
+    healthIndicators.value[3].value = String(data.xueyang);
   }
 };
 
@@ -187,30 +190,46 @@ const viewMonitorRecords = () => {
 };
 
 // 查看完整用药记录
-const viewMedications = () => {
-  uni.showToast({ title: "查看完整用药记录", icon: "none" });
-};
+// const viewMedications = () => {
+//   uni.showToast({ title: "查看完整用药记录", icon: "none" });
+// };
 
 // 查看图片
-const viewImage = (name: string) => {
-  uni.showToast({ title: `查看${name}图片`, icon: "none" });
-};
+// const viewImage = (name: string) => {
+//   uni.showToast({ title: `查看${name}图片`, icon: "none" });
+// };
 
 // 查看PDF
-const viewPDF = (name: string) => {
-  uni.showToast({ title: `查看${name}PDF`, icon: "none" });
-};
+// const viewPDF = (name: string) => {
+//   uni.showToast({ title: `查看${name}PDF`, icon: "none" });
+// };
 
 // 获取状态样式
-const getStatusClass = (type: string) => {
-  switch (type) {
-    case "normal":
-      return "status-normal";
-    case "warning":
-      return "status-warning";
-    default:
-      return "status-normal";
+// const getStatusClass = (type: string) => {
+//   switch (type) {
+//     case "normal":
+//       return "status-normal";
+//     case "warning":
+//       return "status-warning";
+//     default:
+//       return "status-normal";
+//   }
+// };
+
+// 格式化时间戳
+const formatMonitorTime = (time: string | number): string => {
+  if (!time) return "";
+  const timestamp = typeof time === "string" ? Number(time) : time;
+  if (!isNaN(timestamp) && String(time).length >= 10) {
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
   }
+  return String(time);
 };
 
 // 监听elderlyId变化，获取健康数据
@@ -266,7 +285,12 @@ watch(
 
     <!-- 健康指标 -->
     <view class="section">
-      <view class="section-title">健康指标</view>
+      <view class="section-header">
+        <view class="section-title">健康指标</view>
+        <text class="update-time" v-if="healthData.monitorTime">
+          更新时间： {{ formatMonitorTime(healthData.monitorTime) }}
+        </text>
+      </view>
       <view class="indicators-grid">
         <view
           class="indicator-card"
@@ -316,6 +340,7 @@ watch(
     </view>
 
     <!-- 用药记录 -->
+    <!--
     <view class="section">
       <view class="section-title">用药记录</view>
       <view class="medication-list">
@@ -334,15 +359,16 @@ watch(
       <div
         style="height: 1px; background-color: #0f172a1a; margin: 30rpx 0"
       ></div>
-      <!-- 查看完整用药记录按钮 -->
       <view class="button-row">
         <view class="btn default" @click="viewMedications"
           >查看完整用药记录</view
         >
       </view>
     </view>
+    -->
 
     <!-- 检查报告 -->
+    <!--
     <view class="section">
       <view class="section-title">检查报告</view>
       <view class="report-list">
@@ -362,8 +388,10 @@ watch(
         </view>
       </view>
     </view>
+    -->
 
     <!-- 护理评估 -->
+    <!--
     <view class="section timeline-section">
       <view class="section-title">护理评估</view>
       <view class="timeline">
@@ -397,6 +425,7 @@ watch(
         </view>
       </view>
     </view>
+    -->
   </view>
 </template>
 
@@ -415,6 +444,22 @@ watch(
       font-size: 26rpx;
       color: #999;
       margin-bottom: 20rpx;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20rpx;
+
+      .section-title {
+        margin-bottom: 0;
+      }
+
+      .update-time {
+        font-size: 24rpx;
+        color: #999;
+      }
     }
   }
 

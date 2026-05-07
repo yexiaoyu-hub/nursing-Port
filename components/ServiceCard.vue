@@ -160,9 +160,14 @@ const buttonText = computed(() => {
 
 // 按钮样式类
 const buttonClass = computed(() => {
-  // 已完成状态且已进入评价流程（显示"去评价"）使用橘色
-  if (props.status === 3 && hasEnteredEvaluation.value) {
+  const text = buttonText.value;
+  // 去评价 - 使用橘色
+  if (text === "去评价") {
     return "buttonmin-orange";
+  }
+  // 开始执行 - 使用绿色
+  if (text === "开始执行") {
+    return "buttonmin-green";
   }
   // 其他情况使用默认蓝色
   return "";
@@ -513,6 +518,12 @@ const statusInfo = computed(() => {
       .buttonmin-orange {
         background-color: #f39e43 !important;
         border-color: #f39e43 !important;
+      }
+
+      // 绿色按钮 - 开始执行
+      .buttonmin-green {
+        background-color: #52c41a !important;
+        border-color: #52c41a !important;
       }
     }
   }

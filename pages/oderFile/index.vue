@@ -57,7 +57,7 @@ const fetchElderlyDetail = async (id: number) => {
     if (data && data.agedId) {
       // 映射接口数据到页面数据
       elderlyInfo.value = {
-        agedId: data.agedId?.toString() || "",
+        diySn: data.diySn?.toString() || "",
         name: data.agedName || "",
         gender: data.sex === "1" ? "男" : data.sex === "2" ? "女" : "",
         age: data.age || 0,
@@ -77,8 +77,8 @@ const fetchElderlyDetail = async (id: number) => {
         birthDate: data.birthday || "",
         idCard: data.idno || "",
         phone: data.tel || "",
-        emergencyContact: data.changhuDaili
-          ? `${data.changhuDaili}（${data.changhuGuanxi || "亲属"}）${
+        emergencyContact: data.changhuSostel
+          ? `${data.changhuSostel}（${data.changhuGuanxi || "亲属"}）${
               data.changhuTel || ""
             }`
           : "",
@@ -191,7 +191,7 @@ onLoad((options) => {
         :elderlyId="elderlyId"
         :basicInfo="elderlyInfo"
       />
-      <PlanTab v-if="activeTab === 3" :agedId="elderlyInfo.agedId" />
+      <PlanTab v-if="activeTab === 3" :elderlyId="elderlyId" />
     </scroll-view>
   </view>
 </template>

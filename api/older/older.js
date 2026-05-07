@@ -44,3 +44,21 @@ export const getServicePlanChangeLog = (params) => {
         params
     })
 }
+
+// 获取评估报告列表
+export const getPingguReportList = (params) => {
+    return request({
+        url: '/jigou/pinggu-report/page',
+        method: 'get',
+        params
+    })
+}
+
+// 获取评估报告详情
+export const getPingguReportDetail = (id) => {
+    return request({
+        url: '/jigou/pinggu-report/get',
+        method: 'get',
+        params: { id }
+    })
+}

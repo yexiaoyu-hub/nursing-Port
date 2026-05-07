@@ -602,10 +602,12 @@ const actionButtonText = computed(() => {
 
 // 按钮样式类
 const actionButtonClass = computed(() => {
-  // 已完成且已进入评价流程（显示"去评价"）用橘色
-  if (isCompleted.value && hasEnteredEvaluation.value) return "completed";
-  // 服务中用绿色，其他情况（包括已完成但未进入评价流程）用蓝色
-  if (isServing.value) return "pending";
+  const text = actionButtonText.value;
+  // 去评价 - 使用橘色
+  if (text === "去评价") return "completed";
+  // 去执行 - 使用绿色
+  if (text === "去执行") return "green";
+  // 继续执行 - 使用蓝色（默认）
   return "pending";
 });
 
@@ -1231,6 +1233,10 @@ const isCurrentAudio = (url: string) => {
 
       &.completed {
         background: linear-gradient(135deg, #fa8c16, #d46b08);
+      }
+
+      &.green {
+        background: #52c41a;
       }
     }
 
