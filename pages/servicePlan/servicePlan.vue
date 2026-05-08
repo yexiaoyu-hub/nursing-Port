@@ -313,6 +313,13 @@ const formatDateTime = (date: Date) => {
 
 // 查看历史记录
 const viewHistory = () => {
+  if (!elderlyInfo.value.id) {
+    uni.showToast({
+      title: '未获取到老人信息',
+      icon: 'none'
+    });
+    return;
+  }
   uni.navigateTo({
     url: "/pages/servicePlan/historicalRecord?agedId=" + elderlyInfo.value.id,
   });

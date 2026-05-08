@@ -1,35 +1,136 @@
 // 待服务老人组件
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted, watch } from "vue";
+import { getPendingServiceElderlyStatistics } from "@/api/dataBoard/dataBoard.js";
+
+// 定义 props 接收日期范围
+const props = defineProps<{
+  dateRange?: {
+    beginDate: string;
+    endDate: string;
+  };
+}>();
+
+// 加载状态
+const loading = ref(false);
 
 // 核心看板数据
 const dashboardData = ref({
-  pendingElderly: 12,
-  institutionElderly: 3,
-  communityElderly: 4,
+  pendingElderly: 0,
+  institutionElderly: 0,
+  communityElderly: 0,
 });
 
 // 失能等级分布
-const disabilityDistribution = ref([
-  { name: "一级", count: 5, percentage: 42 },
-  { name: "二级", count: 4, percentage: 33 },
-  { name: "三级", count: 3, percentage: 25 },
-]);
+const disabilityDistribution = ref<
+  Array<{ name: string; count: number; percentage: number }>
+>([]);
 
 // 健康状况分布
-const healthDistribution = ref([
-  { name: "一级", count: 3, percentage: 25, color: "#ff4d4f" },
-  { name: "二级", count: 4, percentage: 33, color: "#faad14" },
-  { name: "三级", count: 5, percentage: 42, color: "#52c41a" },
-]);
+const healthDistribution = ref<
+  Array<{ name: string; count: number; percentage: number; color: string }>
+>([]);
 
 // 服务频次统计
-const frequencyDistribution = ref([
-  { name: "1-2 次", count: 6, percentage: 50 },
-  { name: "3-4 次", count: 4, percentage: 33 },
-  { name: "5 次及以上", count: 2, percentage: 17 },
-]);
-const weeklyTotal = ref(26);
+const frequencyDistribution = ref<
+  Array<{ name: string; count: number; percentage: number }>
+>([]);
+const weeklyTotal = ref(0);
+
+// 获取待服务老人统计数据
+const fetchStatistics = async () => {
+  loading.value = true;
+  try {
+    const params: Record<string, any> = {};
+
+    // 添加日期范围参数
+    if (props.dateRange?.beginDate) {
+      params.beginDate = props.dateRange.beginDate;
+    }
+    if (props.dateRange?.endDate) {
+      params.endDate = props.dateRange.endDate;
+    }
+
+    const res = await getPendingServiceElderlyStatistics(params);
+
+    // 更新核心看板数据
+    dashboardData.value = {
+      pendingElderly: res.pendingServiceAgedCount || 0,
+      institutionElderly: res.orgNursingAgedCount || 0,
+      communityElderly: res.homeCommunityNursingAgedCount || 0,
+    };
+
+    // 更新失能等级分布数据
+    if (
+      res.shinengLevelDistribution &&
+      res.shinengLevelDistribution.length > 0
+    ) {
+      disabilityDistribution.value = res.shinengLevelDistribution.map(
+        (item: any) => ({
+          name: item.name || "",
+          count: item.count || 0,
+          percentage: Math.round((item.ratio || 0) * 100),
+        })
+      );
+    } else {
+      disabilityDistribution.value = [];
+    }
+
+    // 更新健康状况分布数据
+    if (res.healthDistribution && res.healthDistribution.length > 0) {
+      healthDistribution.value = res.healthDistribution.map((item: any) => ({
+        name: item.name || "",
+        count: item.count || 0,
+        percentage: Math.round((item.ratio || 0) * 100),
+        color: getHealthColor(item.name || ""),
+      }));
+    } else {
+      healthDistribution.value = [];
+    }
+
+    // 更新服务频次统计数据
+    weeklyTotal.value = res.serviceFrequencyTotalOrderCount || 0;
+    if (
+      res.serviceFrequencyDistribution &&
+      res.serviceFrequencyDistribution.length > 0
+    ) {
+      frequencyDistribution.value = res.serviceFrequencyDistribution.map(
+        (item: any) => ({
+          name: item.name || "",
+          count: item.count || 0,
+          percentage: Math.round((item.ratio || 0) * 100),
+        })
+      );
+    } else {
+      frequencyDistribution.value = [];
+    }
+  } catch (error) {
+    console.error("获取待服务老人统计失败:", error);
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 根据健康状况等级获取颜色
+const getHealthColor = (name: string): string => {
+  if (name.includes("一") || name.includes("1")) return "#ff4d4f";
+  if (name.includes("二") || name.includes("2")) return "#faad14";
+  return "#52c41a";
+};
+
+// 页面加载时获取数据
+onMounted(() => {
+  fetchStatistics();
+});
+
+// 监听日期范围变化，重新获取数据
+watch(
+  () => props.dateRange,
+  () => {
+    fetchStatistics();
+  },
+  { deep: true }
+);
 </script>
 
 <template>
@@ -129,7 +230,7 @@ const weeklyTotal = ref(26);
       <view class="chart-card">
         <view class="chart-header">
           <text class="chart-title">服务频次统计</text>
-          <text class="chart-total">本周合计 {{ weeklyTotal }}</text>
+          <text class="chart-total">合计： {{ weeklyTotal }}</text>
         </view>
         <view class="chart-list">
           <view

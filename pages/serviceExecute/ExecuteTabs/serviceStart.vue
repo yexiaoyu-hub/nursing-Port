@@ -1,6 +1,6 @@
 // 服务开始标签页组件
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import AbnormalAction from "@/components/AbnormalAction.vue";
 import LocationPicker from "@/components/service/LocationPicker.vue";
 import VoiceRecorder from "@/components/service/VoiceRecorder.vue";
@@ -9,6 +9,7 @@ import {
   createServiceSignStart,
 } from "@/api/service/service";
 import { getServicePlanByAged } from "@/api/older/older.js";
+import { getServiceOrderWithProjectsAll } from "@/api/service/order.js";
 import { uploadFileService, blobUrlToFile } from "@/api/common/upload";
 
 const emit = defineEmits<{
@@ -80,13 +81,55 @@ const clearState = () => {
 };
 
 // 服务信息
-const serviceInfo = {
-  name: "王大锤",
-  serviceType: "生活照料服务",
-  duration: "1分钟",
-  cost: "0.10",
-  subsidy: "0.04",
-  selfPay: "0.06",
+const serviceInfo = ref({
+  name: "",
+  serviceType: "",
+  duration: "",
+  gender: "", // 1-男, 2-女
+});
+
+// 计算性别称呼
+const genderTitle = computed(() => {
+  return serviceInfo.value.gender === "1" || serviceInfo.value.gender === 1
+    ? "先生"
+    : "女士";
+});
+
+// 获取订单详情
+const fetchOrderDetail = async () => {
+  if (!orderId.value) return;
+
+  try {
+    const res = await getServiceOrderWithProjectsAll(orderId.value);
+    const orderData = res?.data || res;
+
+    if (orderData) {
+      // 获取老人姓名
+      serviceInfo.value.name =
+        orderData.agedName || elderlyInfo.value.name || "";
+
+      // 获取老人性别
+      serviceInfo.value.gender = orderData.agedSex || "";
+
+      // 获取服务时长（分钟）
+      serviceInfo.value.duration = orderData.orderSerTimes || "";
+
+      // 获取服务项目名称
+      const projects = orderData.projects || [];
+      if (projects.length > 0) {
+        // 如果有多个项目，用逗号连接
+        serviceInfo.value.serviceType = projects
+          .map((p: any) => p.projectName || p.name)
+          .join("、");
+      } else {
+        serviceInfo.value.serviceType = orderData.serviceTypeName || "";
+      }
+    }
+  } catch (error) {
+    console.error("获取订单详情失败:", error);
+    // 使用 props 传入的数据作为后备
+    serviceInfo.value.name = elderlyInfo.value.name || "";
+  }
 };
 
 // 页面加载获取参数
@@ -114,6 +157,9 @@ onMounted(() => {
 
   // 页面加载时自动获取定位
   locationPickerRef.value?.refreshLocation();
+
+  // 获取订单详情（老人名字、服务项目等）
+  fetchOrderDetail();
 
   // 获取服务计划
   fetchServicePlan();
@@ -218,14 +264,14 @@ const handleComplete = async () => {
     });
     return;
   }
-  // // 检查是否已上传录音
-  // if (!voiceRecorderRef.value?.audioFilePath) {
-  //   uni.showToast({
-  //     title: "请先上传录音",
-  //     icon: "none",
-  //   });
-  //   return;
-  // }
+  // 检查是否已上传录音
+  if (!voiceRecorderRef.value?.audioFilePath) {
+    uni.showToast({
+      title: "请先上传录音",
+      icon: "none",
+    });
+    return;
+  }
 
   uni.showLoading({ title: "提交中..." });
   try {
@@ -441,13 +487,9 @@ const formatDateTime = (date: Date) => {
       <view class="section-title">3) 服务前录音</view>
       <view class="voice-box">
         <view class="voice-text">
-          {{ serviceInfo.name }}先生，您本次的服务内容是:{{
+          {{ serviceInfo.name }}{{ genderTitle }}，您本次的服务项目是:{{
             serviceInfo.serviceType
-          }};服务时长约:{{ serviceInfo.duration }};费用{{
-            serviceInfo.cost
-          }}元，可享受补贴{{ serviceInfo.subsidy }}元，您自己只需支付{{
-            serviceInfo.selfPay
-          }}元。
+          }}，总计服务时长约{{ serviceInfo.duration }}分钟。
         </view>
       </view>
 
@@ -457,7 +499,7 @@ const formatDateTime = (date: Date) => {
 
     <!-- 本次服务项目 -->
     <view class="section">
-      <view class="section-title">本次服务项目</view>
+      <view class="section-title">本次服务项目（点击查看SOP）</view>
       <view v-if="serviceItems.length === 0" class="empty-text">
         暂无服务项目
       </view>

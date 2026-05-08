@@ -63,7 +63,7 @@ const fetchServicePlan = async () => {
             items.push({
               id: project.projectId || project.id || "",
               name: project.projectName,
-              sort: project.sort || groupSort
+              sort: project.sort || groupSort,
             });
           }
         });
@@ -77,8 +77,14 @@ const fetchServicePlan = async () => {
 };
 
 // 跳转到 SOP 页面
-const goToSOP = (item: { id: string | number; name: string; sort?: number }) => {
-  let url = `/pages/serviceExecute/otherEntrances/serviceSOP?projectId=${item.id}&projectName=${encodeURIComponent(item.name)}`;
+const goToSOP = (item: {
+  id: string | number;
+  name: string;
+  sort?: number;
+}) => {
+  let url = `/pages/serviceExecute/otherEntrances/serviceSOP?projectId=${
+    item.id
+  }&projectName=${encodeURIComponent(item.name)}`;
   // 如果有分类信息，传递给SOP页面
   if (item.sort) {
     url += `&sort=${item.sort}`;
@@ -210,14 +216,14 @@ const handleNext = async () => {
     return;
   }
 
-  // // 检查是否已录音
-  // if (!voiceRecorderRef.value?.audioFilePath) {
-  //   uni.showToast({
-  //     title: "请先上传录音",
-  //     icon: "none",
-  //   });
-  //   return;
-  // }
+  // 检查是否已录音
+  if (!voiceRecorderRef.value?.audioFilePath) {
+    uni.showToast({
+      title: "请先上传录音",
+      icon: "none",
+    });
+    return;
+  }
 
   uni.showLoading({ title: "提交中..." });
   try {

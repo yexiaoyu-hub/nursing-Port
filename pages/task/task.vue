@@ -33,14 +33,14 @@
             placeholder="搜索老人/项目/工单号"
             v-model="searchKeyword"
             confirm-type="search"
-            @confirm="fetchTaskList"
+            @confirm="onSearch"
           />
           <uni-icons
             v-if="searchKeyword"
             type="clear"
             size="24"
             color="#999"
-            @click="searchKeyword = ''"
+            @click="clearSearch"
           ></uni-icons>
         </view>
       </view>
@@ -57,14 +57,28 @@
     />
 
     <!-- 任务列表 -->
-    <view class="task-list">
-      <TaskCard v-for="task in filteredTasks" :key="task.id" :task="task" />
+    <scroll-view
+      class="task-list"
+      scroll-y
+      @scrolltolower="loadMore"
+      :refresher-enabled="true"
+      :refresher-triggered="refreshing"
+      @refresherrefresh="onRefresh"
+    >
+      <TaskCard v-for="task in taskList" :key="task.id" :task="task" />
+
+      <!-- 加载更多状态 -->
+      <view v-if="taskList.length > 0" class="load-more">
+        <text v-if="loading">加载中...</text>
+        <text v-else-if="noMore">没有更多了</text>
+        <text v-else>上拉加载更多</text>
+      </view>
 
       <!-- 空状态 -->
-      <view v-if="filteredTasks.length === 0" class="empty-state">
+      <view v-if="taskList.length === 0 && !loading" class="empty-state">
         <text>暂无任务</text>
       </view>
-    </view>
+    </scroll-view>
   </view>
 </template>
 
@@ -112,9 +126,23 @@ const hasDateFilter = computed(() => {
 // 任务列表数据
 const taskList = ref([]);
 const loading = ref(false);
+const refreshing = ref(false);
+
+// 分页相关
+const pageNo = ref(1);
+const pageSize = 10;
+const noMore = ref(false);
 
 // 获取任务列表
-const fetchTaskList = async () => {
+const fetchTaskList = async (isLoadMore = false) => {
+  if (loading.value) return;
+
+  // 如果不是加载更多，重置页码
+  if (!isLoadMore) {
+    pageNo.value = 1;
+    noMore.value = false;
+  }
+
   loading.value = true;
   try {
     // 获取当前登录用户信息
@@ -123,8 +151,8 @@ const fetchTaskList = async () => {
 
     // 构建查询参数
     const params = {
-      pageNo: 1,
-      pageSize: 100,
+      pageNo: pageNo.value,
+      pageSize: pageSize,
     };
 
     // 添加服务人员ID筛选（后端字段名是 statffId）
@@ -144,64 +172,28 @@ const fetchTaskList = async () => {
 
     // 添加搜索关键词
     if (searchKeyword.value) {
-      params.keyword = searchKeyword.value;
+      // 判断是工单号还是老人姓名（工单号通常是数字或字母组合）
+      const isOrderNo = /^[a-zA-Z0-9]+$/.test(searchKeyword.value);
+      if (isOrderNo) {
+        params.orderNo = searchKeyword.value;
+      } else {
+        params.agedName = searchKeyword.value;
+      }
+    }
+
+    // 添加日期范围筛选（传给后端）
+    if (dateRange.value.beginDate) {
+      params.beginDate = dateRange.value.beginDate;
+    }
+    if (dateRange.value.endDate) {
+      params.endDate = dateRange.value.endDate;
     }
 
     const res = await getServiceHistoryList(params);
 
     if (res && res.list) {
-      // 前端筛选
-      let filteredList = res.list;
-
-      // 关键字搜索（老人姓名、项目、工单号）
-      if (searchKeyword.value) {
-        const keyword = searchKeyword.value.toLowerCase();
-        filteredList = filteredList.filter((item) => {
-          // 搜索老人姓名
-          const nameMatch =
-            item.agedName && item.agedName.toLowerCase().includes(keyword);
-          // 搜索工单号
-          const orderNoMatch =
-            item.orderNo && item.orderNo.toLowerCase().includes(keyword);
-          // 搜索服务项目
-          const projectMatch =
-            item.projects &&
-            item.projects.some(
-              (p) =>
-                p.projectName && p.projectName.toLowerCase().includes(keyword)
-            );
-          return nameMatch || orderNoMatch || projectMatch;
-        });
-      }
-
-      // 日期筛选
-      if (dateRange.value.beginDate && dateRange.value.endDate) {
-        const beginTime = new Date(
-          dateRange.value.beginDate + " 00:00:00"
-        ).getTime();
-        const endTime = new Date(
-          dateRange.value.endDate + " 23:59:59"
-        ).getTime();
-
-        filteredList = filteredList.filter((item) => {
-          // 根据服务执行时间筛选（待执行、执行中）
-          const dispatchTime = item.orderDispatchDate
-            ? new Date(item.orderDispatchDate).getTime()
-            : 0;
-          // 根据服务结束时间筛选（已完成）
-          const endTimeValue = item.serEnd
-            ? new Date(item.serEnd).getTime()
-            : 0;
-
-          // 使用执行时间或结束时间进行筛选
-          const checkTime = endTimeValue || dispatchTime;
-          if (!checkTime) return true; // 没有时间字段的不筛选
-
-          return checkTime >= beginTime && checkTime <= endTime;
-        });
-      }
-
-      taskList.value = filteredList.map((item) => {
+      // 直接使用后端返回的数据，不再进行前端筛选
+      const newList = res.list.map((item) => {
         const status = statusMap[item.status] || "pending";
         const isCompleted = status === "completed";
 
@@ -234,8 +226,27 @@ const fetchTaskList = async () => {
           rawData: item,
         };
       });
+
+      // 如果是加载更多，追加数据；否则替换数据
+      if (isLoadMore) {
+        taskList.value = [...taskList.value, ...newList];
+      } else {
+        taskList.value = newList;
+      }
+
+      // 判断是否还有更多数据（根据后端返回的总数判断）
+      const total = res.total || 0;
+      const currentTotal = isLoadMore
+        ? taskList.value.length + newList.length
+        : newList.length;
+      if (currentTotal >= total || newList.length < pageSize) {
+        noMore.value = true;
+      }
     } else {
-      taskList.value = [];
+      if (!isLoadMore) {
+        taskList.value = [];
+      }
+      noMore.value = true;
     }
   } catch (error) {
     console.error("获取任务列表失败:", error);
@@ -265,15 +276,39 @@ onShow(() => {
   fetchTaskList();
 });
 
-// 直接使用taskList作为过滤后的列表（因为筛选已在API层完成）
-const filteredTasks = computed(() => {
-  return taskList.value;
-});
+// 下拉刷新
+const onRefresh = async () => {
+  refreshing.value = true;
+  await fetchTaskList(false);
+  refreshing.value = false;
+};
+
+// 触底加载更多
+const loadMore = async () => {
+  if (loading.value || noMore.value) return;
+  pageNo.value++;
+  await fetchTaskList(true);
+};
 
 // 切换标签
 const switchTab = (value) => {
   currentTab.value = value;
-  fetchTaskList();
+  taskList.value = []; // 清空列表
+  fetchTaskList(false);
+};
+
+// 搜索
+const onSearch = () => {
+  taskList.value = []; // 清空列表
+  pageNo.value = 1; // 重置页码
+  noMore.value = false; // 重置加载状态
+  fetchTaskList(false);
+};
+
+// 清空搜索
+const clearSearch = () => {
+  searchKeyword.value = "";
+  onSearch();
 };
 
 // 打开日期筛选
@@ -285,7 +320,8 @@ const openCalendar = () => {
 const onDateConfirm = (beginDate, endDate) => {
   dateRange.value.beginDate = beginDate;
   dateRange.value.endDate = endDate;
-  fetchTaskList();
+  taskList.value = []; // 清空列表
+  fetchTaskList(false);
   uni.showToast({
     title: `已筛选：${dateRange.value.beginDate} 至 ${dateRange.value.endDate}`,
     icon: "none",
@@ -296,7 +332,8 @@ const onDateConfirm = (beginDate, endDate) => {
 const onDateClear = () => {
   dateRange.value.beginDate = "";
   dateRange.value.endDate = "";
-  fetchTaskList();
+  taskList.value = []; // 清空列表
+  fetchTaskList(false);
   uni.showToast({
     title: "已清空日期筛选",
     icon: "none",
@@ -403,6 +440,17 @@ const onDateClear = () => {
 .task-list {
   padding: 0 30rpx 20rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  height: calc(100vh - 220rpx); // 设置高度以支持滚动
+  box-sizing: border-box;
+  width: 100%;
+}
+
+// 加载更多
+.load-more {
+  text-align: center;
+  padding: 30rpx 0;
+  color: #999;
+  font-size: 24rpx;
 }
 
 // 空状态

@@ -3,7 +3,7 @@ import request from '@/utils/request.js'
 // 获取老人列表
 export const getAgedPage = (params) => {
     return request({
-        url: '/changhu/changhu-aged/page',
+        url: '/changhu/changhu-aged/page-with-address-display',
         method: 'get',
         params
     })

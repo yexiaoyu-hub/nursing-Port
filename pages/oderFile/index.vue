@@ -57,6 +57,7 @@ const fetchElderlyDetail = async (id: number) => {
     if (data && data.agedId) {
       // 映射接口数据到页面数据
       elderlyInfo.value = {
+        agedId: data.agedId || "",
         diySn: data.diySn?.toString() || "",
         name: data.agedName || "",
         gender: data.sex === "1" ? "男" : data.sex === "2" ? "女" : "",
@@ -76,6 +77,7 @@ const fetchElderlyDetail = async (id: number) => {
         // 健康页字段
         birthDate: data.birthday || "",
         idCard: data.idno || "",
+        changhuTel: data.changhuTel || "",
         phone: data.tel || "",
         emergencyContact: data.changhuSostel
           ? `${data.changhuSostel}（${data.changhuGuanxi || "亲属"}）${
@@ -110,12 +112,20 @@ const getDisabilityText = (level: string | number) => {
 // 处理一键拨号
 const handleDial = (phone: string) => {
   uni.makePhoneCall({
-    phoneNumber: phone || elderlyInfo.value.phone || "10086",
+    phoneNumber:
+      elderlyInfo.value.changhuTel || elderlyInfo.value.phone || "10086",
   });
 };
 
 // 处理历史记录
 const handleHistory = () => {
+  if (!elderlyInfo.value.agedId) {
+    uni.showToast({
+      title: "未获取到老人信息",
+      icon: "none",
+    });
+    return;
+  }
   uni.navigateTo({
     url: "/pages/servicePlan/historicalRecord?id=" + elderlyInfo.value.agedId,
   });

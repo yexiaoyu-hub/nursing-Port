@@ -1,6 +1,7 @@
 // 历史服务记录
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed } from "vue";
+import { onLoad } from "@dcloudio/uni-app";
 import { getServiceHistoryList } from "@/api/history/history.js";
 import { getAgedDetail } from "@/api/older/older.js";
 import DateRangePicker from "@/components/DateRangePicker.vue";
@@ -178,15 +179,16 @@ const fetchElderlyDetail = async (agedId: string) => {
 const fetchServiceRecords = async (agedId: string) => {
   try {
     const params: any = {
-      agedId: agedId,
+      agedId: parseInt(agedId), // 转为数字类型
       pageNo: 1,
       pageSize: 100,
     };
-    if (dateRange.value.startDate) {
-      params.startDate = dateRange.value.startDate;
-    }
-    if (dateRange.value.endDate) {
-      params.endDate = dateRange.value.endDate;
+    // 日期参数使用 orderDispatchDate 数组格式
+    if (dateRange.value.startDate && dateRange.value.endDate) {
+      params.orderDispatchDate = [
+        dateRange.value.startDate,
+        dateRange.value.endDate,
+      ];
     }
     const res = await getServiceHistoryList(params);
     // 处理接口返回的数据结构
@@ -222,12 +224,9 @@ const handleRecordClick = (record: ServiceRecord) => {
   });
 };
 
-// 页面加载
-onMounted(() => {
-  const pages = getCurrentPages(); //获取当前页面栈
-  const currentPage = pages[pages.length - 1]; //获取当前页面
-  const options = currentPage.options || currentPage.$route?.query || {};
-  const agedId = options.id || options.agedId; //获取老人ID
+// 页面加载 - onLoad 在 uni-app 中用于获取页面参数
+onLoad((options: any) => {
+  const agedId = options?.id || options?.agedId; //获取老人ID
 
   if (agedId) {
     currentAgedId.value = agedId;

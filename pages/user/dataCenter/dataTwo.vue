@@ -1,46 +1,164 @@
 // 已服务订单组件
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted, watch } from "vue";
+import { getServedOrderStatistics } from "@/api/dataBoard/dataBoard.js";
+
+// 定义 props 接收日期范围
+const props = defineProps<{
+  dateRange?: {
+    beginDate: string;
+    endDate: string;
+  };
+}>();
+
+// 加载状态
+const loading = ref(false);
 
 // 核心看板数据
 const dashboardData = ref({
-  completedOrders: 18,
-  onTimeRate: 89,
-  abnormalOrders: 2,
+  completedOrders: 0,
+  avgDuration: 0,
+  avgSatisfaction: 0,
 });
 
 // 质量概览
 const qualityOverview = ref({
-  onTimeRate: 89,
-  abnormalCount: 2,
+  onTimeRate: 0,
+  abnormalCount: 0,
 });
 
 // 服务时长分布
-const durationDistribution = ref([
-  { name: "≤30 分钟", count: 5, percentage: 28 },
-  { name: "31-60 分钟", count: 10, percentage: 56 },
-  { name: ">60 分钟", count: 3, percentage: 16 },
-]);
-const avgDuration = ref(42);
+const durationDistribution = ref<
+  Array<{ name: string; count: number; percentage: number }>
+>([]);
 
 // 满意度分布
-const satisfactionDistribution = ref([
-  { name: "5 分", count: 12, percentage: 67, color: "#52c41a" },
-  { name: "4 分", count: 5, percentage: 28, color: "#faad14" },
-  { name: "≤3 分", count: 1, percentage: 5, color: "#ff4d4f" },
-]);
-const avgSatisfaction = ref(4.6);
+const satisfactionDistribution = ref<
+  Array<{ name: string; count: number; percentage: number; color: string }>
+>([]);
 
 // 异常订单列表
-const abnormalOrders = ref([
-  {
-    type: "超时未开始",
-    date: "2026-01-24",
-    name: "赵强",
-    service: "洗澡",
-    level: "严重",
+const abnormalOrders = ref<
+  Array<{
+    orderId: number;
+    abnormalTitle: string;
+    abnormalTime: string;
+    staffName: string;
+    projectNames: string;
+  }>
+>([]);
+
+// 获取已服务订单统计数据
+const fetchStatistics = async () => {
+  loading.value = true;
+  try {
+    const params: Record<string, any> = {};
+
+    // 添加日期范围参数
+    if (props.dateRange?.beginDate) {
+      params.beginDate = props.dateRange.beginDate;
+    }
+    if (props.dateRange?.endDate) {
+      params.endDate = props.dateRange.endDate;
+    }
+
+    const res = await getServedOrderStatistics(params);
+
+    // 更新核心看板数据
+    dashboardData.value = {
+      completedOrders: res.servedOrderCount || 0,
+      avgDuration: res.avgServiceMinutes || 0,
+      avgSatisfaction: res.avgSatisfaction || 0,
+    };
+
+    // 更新质量概览数据
+    qualityOverview.value = {
+      onTimeRate: Math.round((res.onTimeCompletionRate || 0) * 100),
+      abnormalCount: res.abnormalOrderCount || 0,
+    };
+
+    // 更新服务时长分布数据
+    if (
+      res.serviceDurationDistribution &&
+      res.serviceDurationDistribution.length > 0
+    ) {
+      durationDistribution.value = res.serviceDurationDistribution.map(
+        (item: any) => ({
+          name: item.name,
+          count: item.count,
+          percentage: Math.round((item.ratio || 0) * 100),
+        })
+      );
+    } else {
+      durationDistribution.value = [];
+    }
+
+    // 更新满意度分布数据
+    if (
+      res.satisfactionDistribution &&
+      res.satisfactionDistribution.length > 0
+    ) {
+      satisfactionDistribution.value = res.satisfactionDistribution.map(
+        (item: any) => ({
+          name: item.name,
+          count: item.count,
+          percentage: Math.round((item.ratio || 0) * 100),
+          color: getSatisfactionColor(item.name),
+        })
+      );
+    } else {
+      satisfactionDistribution.value = [];
+    }
+
+    // 更新异常订单列表
+    if (res.abnormalOrders && res.abnormalOrders.length > 0) {
+      abnormalOrders.value = res.abnormalOrders.map((item: any) => ({
+        orderId: item.orderId,
+        abnormalTitle: item.abnormalTitle,
+        abnormalTime: item.abnormalTime,
+        staffName: item.staffName,
+        projectNames: item.projectNames,
+      }));
+    } else {
+      abnormalOrders.value = [];
+    }
+  } catch (error) {
+    console.error("获取已服务订单统计失败:", error);
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 根据满意度分数获取颜色
+const getSatisfactionColor = (name: string): string => {
+  if (name.includes("5")) return "#52c41a";
+  if (name.includes("4")) return "#faad14";
+  return "#ff4d4f";
+};
+
+// 格式化时间戳为日期字符串
+const formatDate = (timestamp: number | string): string => {
+  if (!timestamp) return "";
+  const date = new Date(Number(timestamp));
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(date.getDate()).padStart(2, "0")}`;
+};
+
+// 页面加载时获取数据
+onMounted(() => {
+  fetchStatistics();
+});
+
+// 监听日期范围变化，重新获取数据
+watch(
+  () => props.dateRange,
+  () => {
+    fetchStatistics();
   },
-]);
+  { deep: true }
+);
 </script>
 
 <template>
@@ -54,12 +172,15 @@ const abnormalOrders = ref([
           <text class="card-value">{{ dashboardData.completedOrders }}</text>
         </view>
         <view class="dashboard-card">
-          <text class="card-label">按时完成率</text>
-          <text class="card-value">{{ dashboardData.onTimeRate }}%</text>
+          <text class="card-label">平均服务时长</text>
+          <view class="card-value">
+            <text>{{ dashboardData.avgDuration }}</text>
+            <text class="card-unit">min</text>
+          </view>
         </view>
         <view class="dashboard-card">
-          <text class="card-label">异常订单</text>
-          <text class="card-value">{{ dashboardData.abnormalOrders }}</text>
+          <text class="card-label">平均满意度</text>
+          <text class="card-value">{{ dashboardData.avgSatisfaction }}</text>
         </view>
       </view>
     </view>
@@ -88,7 +209,7 @@ const abnormalOrders = ref([
     <view class="chart-section">
       <view class="chart-header-row">
         <text class="section-title">服务时长分布</text>
-        <text class="chart-avg">均值 {{ avgDuration }} 分钟</text>
+        <text class="chart-avg">均值 {{ dashboardData.avgDuration }} 分钟</text>
       </view>
       <view class="chart-card">
         <view class="chart-list">
@@ -120,7 +241,7 @@ const abnormalOrders = ref([
     <view class="chart-section">
       <view class="chart-header-row">
         <text class="section-title">满意度分布</text>
-        <text class="chart-avg">平均 {{ avgSatisfaction }}</text>
+        <text class="chart-avg">平均 {{ dashboardData.avgSatisfaction }}</text>
       </view>
       <view class="chart-card">
         <view class="chart-list">
@@ -164,16 +285,12 @@ const abnormalOrders = ref([
           class="abnormal-card"
         >
           <view class="abnormal-header">
-            <text class="abnormal-type">{{ item.type }}</text>
-            <view
-              class="abnormal-tag"
-              :class="{ serious: item.level === '严重' }"
-            >
-              {{ item.level }}
-            </view>
+            <text class="abnormal-type">{{ item.abnormalTitle }}</text>
+            <view class="abnormal-tag serious">严重</view>
           </view>
           <text class="abnormal-info"
-            >{{ item.date }} · {{ item.name }} · {{ item.service }}</text
+            >{{ formatDate(item.abnormalTime) }} · {{ item.staffName }} ·
+            {{ item.projectNames }}</text
           >
         </view>
       </view>
@@ -217,6 +334,15 @@ const abnormalOrders = ref([
           font-size: 48rpx;
           font-weight: 700;
           color: #333;
+          display: flex;
+          align-items: baseline;
+
+          .card-unit {
+            font-size: 24rpx;
+            font-weight: 400;
+            color: #666;
+            margin-left: 4rpx;
+          }
         }
       }
     }
@@ -275,7 +401,7 @@ const abnormalOrders = ref([
       }
 
       .quality-desc {
-        font-size: 24rpx;
+        font-size: 26rpx;
         color: #999;
       }
     }

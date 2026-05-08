@@ -1,27 +1,107 @@
 // 待服务项目组件
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted, watch } from "vue";
+import { getPendingServiceProjectStatistics } from "@/api/dataBoard/dataBoard.js";
+
+// 定义 props 接收日期范围
+const props = defineProps<{
+  dateRange?: {
+    beginDate: string;
+    endDate: string;
+  };
+}>();
+
+// 加载状态
+const loading = ref(false);
 
 // 核心看板数据
 const dashboardData = ref({
-  totalProjects: 9,
-  totalDuration: 540,
+  totalProjects: 0,
+  totalDuration: 0,
 });
 
 // 项目类型分布
-const projectTypeDistribution = ref([
-  { name: "基础护理", count: 4, percentage: 44 },
-  { name: "康复训练", count: 3, percentage: 33 },
-  { name: "心理疏导", count: 2, percentage: 22 },
-]);
+const projectTypeDistribution = ref<
+  Array<{ name: string; count: number; percentage: number }>
+>([]);
 
 // 预计时长分布
-const durationDistribution = ref([
-  { name: "≤30 分钟", count: 2, percentage: 22 },
-  { name: "31-60 分钟", count: 5, percentage: 56 },
-  { name: ">60 分钟", count: 2, percentage: 22 },
-]);
-const avgDuration = ref(60);
+const durationDistribution = ref<
+  Array<{ name: string; count: number; percentage: number }>
+>([]);
+const avgDuration = ref(0);
+
+// 获取待服务项目统计数据
+const fetchStatistics = async () => {
+  loading.value = true;
+  try {
+    const params: Record<string, any> = {};
+
+    // 添加日期范围参数
+    if (props.dateRange?.beginDate) {
+      params.beginDate = props.dateRange.beginDate;
+    }
+    if (props.dateRange?.endDate) {
+      params.endDate = props.dateRange.endDate;
+    }
+
+    const res = await getPendingServiceProjectStatistics(params);
+
+    // 更新核心看板数据
+    dashboardData.value = {
+      totalProjects: res.pendingServiceProjectCount || 0,
+      totalDuration: res.expectedTotalServiceMinutes || 0,
+    };
+
+    // 更新项目类型分布数据
+    if (res.projectTypeDistribution && res.projectTypeDistribution.length > 0) {
+      projectTypeDistribution.value = res.projectTypeDistribution.map(
+        (item: any) => ({
+          name: item.name || "",
+          count: item.count || 0,
+          percentage: Math.round((item.ratio || 0) * 100),
+        })
+      );
+    } else {
+      projectTypeDistribution.value = [];
+    }
+
+    // 更新预计时长分布数据
+    avgDuration.value = res.avgPlannedServiceMinutes || 0;
+    if (
+      res.plannedDurationDistribution &&
+      res.plannedDurationDistribution.length > 0
+    ) {
+      durationDistribution.value = res.plannedDurationDistribution.map(
+        (item: any) => ({
+          name: item.name || "",
+          count: item.count || 0,
+          percentage: Math.round((item.ratio || 0) * 100),
+        })
+      );
+    } else {
+      durationDistribution.value = [];
+    }
+  } catch (error) {
+    console.error("获取待服务项目统计失败:", error);
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 页面加载时获取数据
+onMounted(() => {
+  fetchStatistics();
+});
+
+// 监听日期范围变化，重新获取数据
+watch(
+  () => props.dateRange,
+  () => {
+    fetchStatistics();
+  },
+  { deep: true }
+);
 </script>
 
 <template>

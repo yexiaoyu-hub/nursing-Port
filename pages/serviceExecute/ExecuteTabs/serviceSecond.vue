@@ -154,7 +154,11 @@ const fetchServicePlan = async () => {
 };
 
 // 跳转到 SOP 页面
-const goToSOP = (item: { id: string | number; name: string; sort?: number }) => {
+const goToSOP = (item: {
+  id: string | number;
+  name: string;
+  sort?: number;
+}) => {
   let url = `/pages/serviceExecute/otherEntrances/serviceSOP?projectId=${
     item.id
   }&projectName=${encodeURIComponent(item.name)}`;
@@ -318,14 +322,14 @@ const handleCheckInSubmit = async () => {
     });
     return;
   }
-  // // 检查是否已上传录音
-  // if (!voiceRecorderRef.value?.audioFilePath) {
-  //   uni.showToast({
-  //     title: "请先上传录音",
-  //     icon: "none",
-  //   });
-  //   return;
-  // }
+  // 检查是否已上传录音
+  if (!voiceRecorderRef.value?.audioFilePath) {
+    uni.showToast({
+      title: "请先上传录音",
+      icon: "none",
+    });
+    return;
+  }
 
   // 提交数据（不跳转页面）
   await submitCheckInData();

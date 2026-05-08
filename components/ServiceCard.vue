@@ -76,12 +76,12 @@ const handlePhoneCall = () => {
   uni.makePhoneCall({
     phoneNumber: props.phone,
     success: () => {
-      console.log("拨打电话成功");
+      console.log("拨打电话成功：", props.phone);
     },
     fail: (err) => {
-      console.error("拨打电话失败:", err);
+      console.error("拨打电话失败：", props.phone, "，错误信息：", err);
       uni.showToast({
-        title: "拨打电话失败",
+        title: "拨打电话失败：" + props.phone,
         icon: "none",
       });
     },

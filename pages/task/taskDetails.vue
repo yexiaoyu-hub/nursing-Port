@@ -198,6 +198,18 @@ const getDisabilityLevelText = (level: string | number) => {
   return disabilityLevelMap[String(level)] || "";
 };
 
+// 评分数字转文字
+const getRatingText = (rating: number) => {
+  const ratingMap: Record<number, string> = {
+    5: "非常满意",
+    4: "满意",
+    3: "一般",
+    2: "不满意",
+    1: "非常不满意",
+  };
+  return ratingMap[rating] || "";
+};
+
 // 获取老人详细信息
 const fetchAgedDetail = async (agedId: number) => {
   try {
@@ -1154,7 +1166,9 @@ const isCurrentAudio = (url: string) => {
               >★</text
             >
           </view>
-          <text class="rating-text">非常棒！</text>
+          <text class="rating-text">{{
+            getRatingText(taskData.evaluation.orgRating)
+          }}</text>
         </view>
         <view class="rating-row">
           <text class="rating-label">人员评价：</text>
@@ -1167,7 +1181,9 @@ const isCurrentAudio = (url: string) => {
               >★</text
             >
           </view>
-          <text class="rating-text">非常棒！</text>
+          <text class="rating-text">{{
+            getRatingText(taskData.evaluation.staffRating)
+          }}</text>
         </view>
         <view class="comment-box">
           <text class="comment-label">评价内容：</text>

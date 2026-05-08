@@ -47,12 +47,12 @@ const handlePhoneCall = () => {
   uni.makePhoneCall({
     phoneNumber: phone,
     success: () => {
-      console.log("拨打电话成功");
+      console.log("拨打电话成功：", phone);
     },
     fail: (err) => {
-      console.error("拨打电话失败:", err);
+      console.error("拨打电话失败：", phone, "，错误信息：", err);
       uni.showToast({
-        title: "拨打电话失败",
+        title: "拨打电话失败：" + phone,
         icon: "none",
       });
     },

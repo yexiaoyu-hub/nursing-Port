@@ -186,7 +186,7 @@ const fetchServiceOrderData = async () => {
               actualDuration,
               plannedDuration,
               isEvaluated: evalStatusMap[order.id] || false,
-              phone: order.tel || order.changhuTel || "",
+              phone: order.changhuTel || order.tel || "",
             };
           });
       } else {

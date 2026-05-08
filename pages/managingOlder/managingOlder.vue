@@ -184,12 +184,12 @@ const fetchElderlyList = async (isLoadMore = false) => {
         name: item.agedName,
         gender: item.sex === "1" ? "男" : "女",
         age: item.age,
-        bedNo: item.juzhuAddress || "-",
+        bedNo: item.addressDisplay || item.juzhuAddress || "-",
         status: status,
         statusColor: getStatusColor(status),
         disability: getDisabilityText(item.shinengLevelid),
         photo: item.photo,
-        phone: item.tel || item.changhuTel || "",
+        phone: item.changhuTel || item.tel || "",
         shinengLevelid: item.shinengLevelid,
       };
     });

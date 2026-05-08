@@ -104,25 +104,30 @@ const getDurationLabel = (status) => {
   padding: 30rpx;
   margin-bottom: 20rpx;
   box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
-  max-width: 100%;
-  margin-left: auto;
-  margin-right: auto;
+  width: 100%;
+  box-sizing: border-box;
 
   .card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20rpx;
+    overflow: hidden;
+    width: 100%;
 
     .header-left {
       display: flex;
       align-items: center;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
 
       .elder-name {
         font-size: 32rpx;
         font-weight: 600;
         color: #333;
         margin-right: 16rpx;
+        flex-shrink: 0;
       }
 
       .order-no {
@@ -131,6 +136,9 @@ const getDurationLabel = (status) => {
         background-color: #f5f5f5;
         padding: 4rpx 12rpx;
         border-radius: 8rpx;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
     }
 
@@ -138,6 +146,8 @@ const getDurationLabel = (status) => {
       font-size: 24rpx;
       padding: 6rpx 20rpx;
       border-radius: 30rpx;
+      flex-shrink: 0;
+      margin-left: 20rpx;
 
       &.status-pending {
         background-color: #fff3e0;
@@ -162,12 +172,16 @@ const getDurationLabel = (status) => {
   }
 
   .service-list {
+    width: 100%;
+    overflow: hidden;
+
     .service-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 20rpx 0;
       border-bottom: 1rpx solid #f5f5f5;
+      overflow: hidden;
 
       &:last-child {
         border-bottom: none;
@@ -176,11 +190,19 @@ const getDurationLabel = (status) => {
       .service-name {
         font-size: 28rpx;
         color: #333;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin-right: 20rpx;
       }
 
       .service-duration {
         font-size: 26rpx;
         color: #666;
+        flex-shrink: 0;
+        white-space: nowrap;
       }
     }
   }
@@ -191,39 +213,49 @@ const getDurationLabel = (status) => {
     margin-top: 20rpx;
     padding-top: 20rpx;
     border-top: 1rpx solid #f5f5f5;
+    overflow: hidden;
+    width: 100%;
 
     .time-info {
       display: flex;
       align-items: center;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
 
       .time-label {
         font-size: 24rpx;
         color: #999;
         margin-right: 10rpx;
+        flex-shrink: 0;
       }
 
       .time-value {
         font-size: 24rpx;
         color: #666;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
     }
 
     .duration-compare {
       display: flex;
       align-items: center;
-      flex-wrap: wrap;
-      justify-content: flex-end;
+      flex-shrink: 0;
+      margin-left: 20rpx;
 
       .duration-compare-label {
         font-size: 24rpx;
         color: #999;
         margin-right: 6rpx;
+        white-space: nowrap;
       }
 
       .duration-compare-value {
         font-size: 24rpx;
         color: #666;
-        margin-right: 10rpx;
+        white-space: nowrap;
       }
 
       .duration-compare-separator {
