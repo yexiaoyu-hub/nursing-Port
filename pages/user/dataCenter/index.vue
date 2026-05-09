@@ -117,14 +117,14 @@ onMounted(() => {
           <text :class="dateRange.beginDate ? 'date-text' : 'placeholder'">
             {{ dateRange.beginDate || "选择开始日期" }}
           </text>
-          <text class="calendar-icon">📅</text>
+          <uni-icons type="calendar" size="26"></uni-icons>
         </view>
         <text class="date-separator">至</text>
         <view class="date-input">
           <text :class="dateRange.endDate ? 'date-text' : 'placeholder'">
             {{ dateRange.endDate || "选择结束日期" }}
           </text>
-          <text class="calendar-icon">📅</text>
+          <uni-icons type="calendar" size="26"></uni-icons>
         </view>
       </view>
     </view>

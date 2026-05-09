@@ -3,8 +3,18 @@
   <view class="voice-recorder">
     <!-- 录音播放器 -->
     <view v-if="hasRecorded" class="audio-player">
-      <view class="play-btn" @click="handlePlay">
-        <text class="play-icon-small">{{ isPlaying ? "⏸" : "▶" }}</text>
+      <view
+        class="play-btn"
+        :class="{ playing: isPlaying }"
+        @click="handlePlay"
+      >
+        <view class="play-icon-small" :class="{ playing: isPlaying }">
+          <view v-if="isPlaying" class="pause-icon">
+            <view class="pause-bar"></view>
+            <view class="pause-bar"></view>
+          </view>
+          <view v-else class="play-triangle"></view>
+        </view>
       </view>
       <view class="audio-progress">
         <view class="progress-bar">
@@ -25,7 +35,11 @@
       :class="{ recording: isRecording }"
       @click="handleToggleRecording"
     >
-      <text class="record-icon">🎙</text>
+      <uni-icons
+        type="mic"
+        size="26"
+        :color="isRecording ? '#ff4d4f' : '#333'"
+      ></uni-icons>
       <text v-if="isRecording"> 录音中 {{ formatTime(recordingTime) }} </text>
       <text v-else-if="hasRecorded">重新录音</text>
       <text v-else>开始录音</text>
@@ -469,11 +483,44 @@ defineExpose({
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      transition: background-color 0.2s;
+
+      &.playing {
+        background-color: #ff6b6b;
+      }
 
       .play-icon-small {
-        font-size: 28rpx;
-        color: #fff;
+        width: 24rpx;
+        height: 24rpx;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         margin-left: 4rpx;
+
+        // 播放三角形
+        .play-triangle {
+          width: 0;
+          height: 0;
+          border-top: 8rpx solid transparent;
+          border-bottom: 8rpx solid transparent;
+          border-left: 14rpx solid #fff;
+          margin-left: 2rpx;
+        }
+
+        // 暂停图标
+        .pause-icon {
+          display: flex;
+          gap: 4rpx;
+          align-items: center;
+          justify-content: center;
+
+          .pause-bar {
+            width: 4rpx;
+            height: 14rpx;
+            background-color: #fff;
+            border-radius: 2rpx;
+          }
+        }
       }
     }
 
@@ -522,10 +569,6 @@ defineExpose({
       background-color: #fff2f0;
       border-color: #ff4d4f;
       color: #ff4d4f;
-    }
-
-    .record-icon {
-      font-size: 32rpx;
     }
   }
 }

@@ -121,8 +121,14 @@ const fetchOrderDetail = async () => {
         serviceInfo.value.serviceType = projects
           .map((p: any) => p.projectName || p.name)
           .join("、");
+        // 同时设置 serviceItems 用于显示服务项目标签
+        serviceItems.value = projects.map((p: any) => ({
+          id: p.projectId || p.id || "",
+          name: p.projectName || p.name || "",
+        }));
       } else {
         serviceInfo.value.serviceType = orderData.serviceTypeName || "";
+        serviceItems.value = [];
       }
     }
   } catch (error) {

@@ -4,10 +4,8 @@
     <!-- 登录背景 -->
     <!-- Logo区域 -->
     <view class="logo-section">
-      <view class="logo">
-        <image src="" mode="aspectFit" class="logo-img" />
-      </view>
-      <text class="app-name">长护险 · 服务端</text>
+      <image class="logo-img" src="/static/慧护行.png" mode="aspectFit" />
+      <text class="app-name">慧护行 · 服务端</text>
     </view>
 
     <!-- 登录卡片 -->
@@ -296,20 +294,11 @@ const navigateToPrivacy = () => {
     z-index: 1;
     position: relative;
 
-    .logo {
-      width: 100rpx;
-      height: 100rpx;
-      background: linear-gradient(135deg, #4a90d9, #357abd);
+    .logo-img {
+      width: 160rpx;
+      height: 160rpx;
       border-radius: 20rpx;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       margin-bottom: 24rpx;
-
-      .logo-img {
-        width: 60rpx;
-        height: 60rpx;
-      }
     }
 
     .app-name {

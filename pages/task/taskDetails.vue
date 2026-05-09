@@ -310,7 +310,8 @@ const processHealthData = (healths: any[]) => {
     bloodOxygen: {
       value: data.xueyang || 0,
       unit: "SpO2",
-      status: data.xueyang < 95 ? "low" : "normal",
+      status:
+        data.xueyang < 95 ? "low" : data.xueyang > 100 ? "high" : "normal",
     },
   };
 };
@@ -1136,6 +1137,14 @@ const isCurrentAudio = (url: string) => {
               "
               class="status-tag-low"
               >偏低</text
+            >
+            <text
+              v-else-if="
+                taskData.healthData.bloodOxygen.value &&
+                taskData.healthData.bloodOxygen.status === 'high'
+              "
+              class="status-tag-high"
+              >偏高</text
             >
             <text
               v-else-if="taskData.healthData.bloodOxygen.value"

@@ -272,7 +272,7 @@ const getAdjustmentTypeClass = (type: string) => {
     </view>
 
     <!-- 计划执行记录 -->
-    <view class="section">
+    <!-- <view class="section">
       <view class="section-title">计划执行记录</view>
       <view class="record-list">
         <view
@@ -291,7 +291,7 @@ const getAdjustmentTypeClass = (type: string) => {
           </view>
         </view>
       </view>
-    </view>
+    </view> -->
   </view>
 </template>
 

@@ -98,14 +98,6 @@ const viewMoreReports = () => {
   });
 };
 
-// 评估提醒
-const reminderEnabled = ref(false);
-
-// 切换提醒
-const toggleReminder = () => {
-  reminderEnabled.value = !reminderEnabled.value;
-};
-
 // 查看评估报告详情
 const viewReportDetail = (item: any) => {
   uni.navigateTo({
@@ -212,24 +204,6 @@ watch(
       <!-- 查看更多报告按钮 -->
       <view class="view-more-btn" @click="viewMoreReports">
         <text>查看更多报告</text>
-      </view>
-    </view>
-
-    <!-- 评估提醒 -->
-    <view class="section">
-      <view class="section-title">评估提醒</view>
-      <view class="reminder-list">
-        <view class="reminder-item switch-item">
-          <text class="label">提醒通知</text>
-          <switch
-            :checked="reminderEnabled"
-            @change="toggleReminder"
-            color="#1677ff"
-          />
-        </view>
-        <view class="reminder-tip">
-          <text>开启后将在下次评估前进行系统通知提醒。</text>
-        </view>
       </view>
     </view>
   </view>

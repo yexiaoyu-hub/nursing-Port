@@ -117,16 +117,13 @@ const downloadReport = (item: any) => {
     });
     return;
   }
-  // #ifdef H5
   // H5 平台直接在新窗口打开文件
   window.open(item.pgFile, "_blank");
   uni.showToast({
     title: "正在下载",
     icon: "none",
   });
-  // #endif
 
-  // #ifndef H5
   // 小程序/App 平台使用 uni.downloadFile
   uni.showLoading({ title: "下载中..." });
 

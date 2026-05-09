@@ -48,15 +48,15 @@ const fetchUserProfile = async () => {
         avatar: res.avatar || res.user?.avatar || "",
         name: res.nickname || res.user?.nickname || "",
         loginDate: res.loginDate
-          ? new Date(res.loginDate)
-              .toLocaleString("zh-CN", {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-              .replace(/\//g, "-")
+          ? (() => {
+              const date = new Date(res.loginDate);
+              const year = date.getFullYear();
+              const month = String(date.getMonth() + 1).padStart(2, "0");
+              const day = String(date.getDate()).padStart(2, "0");
+              const hours = String(date.getHours()).padStart(2, "0");
+              const minutes = String(date.getMinutes()).padStart(2, "0");
+              return `${year}-${month}-${day} ${hours}:${minutes}`;
+            })()
           : "",
         phone: res.mobile || "",
         gender: res.sex === 1 ? "男" : res.sex === 2 ? "女" : "",

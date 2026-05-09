@@ -63,7 +63,7 @@ const handleQuickSign = () => {
       <view class="section-title">基础信息</view>
       <view class="info-list">
         <view class="info-item">
-          <text class="label">老人ID</text>
+          <text class="label">档案编号</text>
           <text class="value">{{ info.diySn }}</text>
         </view>
         <view class="info-item">

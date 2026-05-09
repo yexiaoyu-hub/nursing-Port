@@ -53,7 +53,12 @@
     "mp-weixin": {
         "appid": "",
         "setting": {
-            "urlCheck": false
+            "urlCheck": false,
+            "es6": true,
+            "enhance": true,
+            "postcss": true,
+            "minified": true,
+            "uglifyFileName": true
         },
         "usingComponents": true,
         "requiredPrivateInfos": [
@@ -67,6 +72,9 @@
             "scope.record": {
                 "desc": "您的录音权限将用于服务过程录音"
             }
+        },
+        "optimization": {
+            "subPackages": true
         }
     },
     "mp-alipay": {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref } from "vue";
+import { onLoad } from "@dcloudio/uni-app";
 import { getPingguReportDetail } from "@/api/older/older.js";
 
 // 报告ID
@@ -127,13 +128,16 @@ const downloadReport = () => {
 };
 
 // 页面加载
-onMounted(() => {
-  const pages = getCurrentPages();
-  const currentPage = pages[pages.length - 1];
-  const options = currentPage.options || currentPage.$route?.query || {};
-  reportId.value = Number(options.id) || null;
+onLoad((options: any) => {
+  reportId.value = Number(options?.id) || null;
   if (reportId.value) {
     fetchReportDetail();
+  } else {
+    loading.value = false;
+    uni.showToast({
+      title: "未获取到报告ID",
+      icon: "none",
+    });
   }
 });
 </script>
@@ -141,12 +145,12 @@ onMounted(() => {
 <template>
   <view class="assessment-detail-page">
     <!-- 加载中 -->
-    <view class="loading-state" v-show="loading">
+    <view class="loading-state" v-if="loading">
       <text>加载中...</text>
     </view>
 
     <!-- 报告详情内容 -->
-    <scroll-view class="detail-content" scroll-y v-show="!loading">
+    <scroll-view class="detail-content" scroll-y v-if="!loading">
       <!-- 基本信息 -->
       <view class="section">
         <view class="section-title">基本信息</view>
