@@ -97,7 +97,9 @@ const getStorageKey = () => `serviceEnd_${props.orderId}`;
 
 // 保存状态
 const saveState = () => {
+  const existingState = uni.getStorageSync(getStorageKey()) || {};
   const state = {
+    ...existingState,
     checkInStatus: checkInStatus.value,
     photos: photos.value,
   };

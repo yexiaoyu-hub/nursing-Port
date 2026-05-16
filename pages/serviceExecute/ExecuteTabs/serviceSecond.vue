@@ -77,7 +77,9 @@ const restoreState = () => {
     const key = getStorageKey();
     const state = uni.getStorageSync(key);
     if (state) {
-      checkInStatus.value = state.checkInStatus || "idle";
+      // 不恢复打卡状态，允许用户重新打卡
+      // checkInStatus.value = state.checkInStatus || "idle";
+      checkInStatus.value = "idle";
       isCheckInSubmitted.value = state.isCheckInSubmitted || false;
       // 过滤掉 blob URL（刷新后 blob URL 会失效）
       photos.value = (state.photos || []).filter(
@@ -257,8 +259,8 @@ const fetchServiceStartTime = async () => {
       // 检查是否有服务中签到记录（signType = 2）
       const doingSign = orderData.signs.find((s: any) => s.signType === 2);
       if (doingSign) {
-        // 已存在服务中签到记录，更新本地状态
-        checkInStatus.value = "success";
+        // 已存在服务中签到记录，标记为已提交过签到
+        // 但不恢复打卡状态，允许用户重新打卡
         isCheckInSubmitted.value = true;
       }
 
@@ -575,6 +577,10 @@ const handleTransferTask = () => {
 
 // 生命周期
 onMounted(async () => {
+  // 清除服务结束页的本地标记（用户还在服务中，不应该有这个标记）
+  const serviceEndKey = `serviceEnd_${props.orderId}`;
+  uni.removeStorageSync(serviceEndKey);
+
   // 优先从服务端获取开始时间（多端同步）
   const hasServerStartTime = await fetchServiceStartTime();
 

@@ -95,17 +95,17 @@ const fetchOrderStatus = async () => {
       const hasHealthRecord = healths.length > 0;
 
       // 优先根据本地存储的标记判断步骤（更精确）
-      // 标记优先级：本地评价流程 > 本地服务结束流程 > 服务端结束签到 > 服务端健康采集 > 工单状态
+      // 步骤判断优先级：本地评价流程 > 服务端结束签到 > 本地服务结束流程 > 工单状态
 
       // 1. 检查是否已进入评价流程（第4步）- 本地标记
       if (hasEnteredEvaluation()) {
+        console.log("进入第4步：本地评价流程标记");
         currentStep.value = 4;
       }
       // 2. 检查服务端是否有结束签到记录（signType = 3）
       else if (hasEndSign) {
-        // 其他设备已完成结束签到，同步进入第4步（评价页）
+        console.log("进入第4步：服务端结束签到记录");
         currentStep.value = 4;
-        // 同步设置本地标记，避免后续重复判断
         const evaluationKey = `serviceEvaluation_${orderId.value}`;
         uni.setStorageSync(evaluationKey, {
           entered: true,
@@ -115,42 +115,29 @@ const fetchOrderStatus = async () => {
       }
       // 3. 检查是否已进入服务结束页流程（第3步）- 本地标记
       else if (hasEnteredServiceEnd()) {
+        console.log("进入第3步：本地服务结束流程标记");
         currentStep.value = 3;
       }
-      // 4. 检查服务端是否有健康采集记录（其他设备已点击服务完成）
-      else if (hasHealthRecord) {
-        // 其他设备已提交健康采集数据，同步进入第3步（服务结束页）
-        currentStep.value = 3;
-        // 同步设置本地标记，避免后续重复判断
-        const serviceEndKey = `serviceEnd_${orderId.value}`;
-        uni.setStorageSync(serviceEndKey, {
-          entered: true,
-          timestamp: Date.now(),
-          synced: true,
-        });
-      }
-      // 5. 根据工单状态判断
+      // 4. 根据工单状态判断
       else {
         const orderStatus = orderData.status;
 
         if (orderStatus === 3) {
-          // 工单已完成，但未进入服务结束页流程，说明是异常情况
-          // 默认进入第3步
+          console.log("进入第3步：工单已完成");
           currentStep.value = 3;
         } else if (orderStatus === 2) {
-          // 工单执行中，检查是否有开始签到
           if (hasStartSign) {
-            // 有开始签到，进入第2步（服务中）
+            console.log("进入第2步：工单执行中，有开始签到");
             currentStep.value = 2;
           } else {
-            // 没有签到记录，从第1步开始
+            console.log("进入第1步：工单执行中，无开始签到");
             currentStep.value = 1;
           }
         } else if (orderStatus === 1) {
-          // 工单待执行，从第1步开始
+          console.log("进入第1步：工单待执行");
           currentStep.value = 1;
         } else {
-          // 默认从第1步开始
+          console.log("进入第1步：默认");
           currentStep.value = 1;
         }
       }

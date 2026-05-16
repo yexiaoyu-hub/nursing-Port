@@ -71,6 +71,9 @@
             },
             "scope.record": {
                 "desc": "您的录音权限将用于服务过程录音"
+            },
+            "scope.camera": {
+                "desc": "您的相机权限将用于服务过程拍照"
             }
         },
         "optimization": {

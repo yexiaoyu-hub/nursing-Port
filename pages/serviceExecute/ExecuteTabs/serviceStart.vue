@@ -4,6 +4,7 @@ import { ref, onMounted, computed } from "vue";
 import AbnormalAction from "@/components/AbnormalAction.vue";
 import LocationPicker from "@/components/service/LocationPicker.vue";
 import VoiceRecorder from "@/components/service/VoiceRecorder.vue";
+import WatermarkCamera from "@/components/service/WatermarkCamera.vue";
 import {
   createServiceSign,
   createServiceSignStart,
@@ -395,27 +396,6 @@ const handleComplete = async () => {
   }
 };
 
-// 选择照片
-const choosePhoto = () => {
-  uni.chooseImage({
-    count: 1,
-    sizeType: ["compressed"],
-    sourceType: ["camera"],
-    success: (res) => {
-      photos.value.push(res.tempFilePaths[0]);
-      // 保存状态
-      saveState();
-    },
-  });
-};
-
-// 删除照片
-const removePhoto = (index: number) => {
-  photos.value.splice(index, 1);
-  // 保存状态
-  saveState();
-};
-
 // 录音完成回调
 const handleRecorded = (filePath: string) => {};
 
@@ -468,24 +448,16 @@ const formatDateTime = (date: Date) => {
     <!-- 2) 服务对象拍照确认 -->
     <view class="section">
       <view class="section-title">2) 服务对象拍照确认</view>
-      <view class="photo-list">
-        <view
-          v-for="(photo, index) in photos"
-          :key="index"
-          class="photo-item"
-          :style="{ backgroundImage: `url(${photo})` }"
-        >
-          <view class="photo-remove" @click="removePhoto(index)">×</view>
-        </view>
-        <view
-          v-if="photos.length < 3"
-          class="photo-item photo-add"
-          @click="choosePhoto"
-        >
-          <text class="add-icon">+</text>
-          <text class="add-text">拍照</text>
-        </view>
-      </view>
+      <WatermarkCamera
+        v-model="photos"
+        :max-count="3"
+        :show-time="true"
+        :show-location="true"
+        :show-nurse-name="true"
+        :nurse-name="nurseInfo.name"
+        watermark-text="护理服务打卡"
+        @photo-taken="saveState"
+      />
     </view>
 
     <!-- 3) 服务前录音 -->
